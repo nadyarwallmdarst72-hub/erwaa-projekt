@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #F4F8F7;
+  --surface: #FFFFFF;
+  --line: #D6E4E1;
+  --fg: #16302C;
+  --muted: #68807B;
+  --accent: #1B8576;
+  --accent-soft: #E0F0ED;
+  --accent-fg: #FFFFFF;
+  --ok: #2E8E45;
+  --bad: #D13B3B;
+  --scrim: rgba(8, 20, 18, 0.55);
+  --font-display: 'Noto Kufi Arabic', 'Segoe UI', Tahoma, sans-serif;
+  --font-body: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1817;
+    --surface: #142423;
+    --line: #223937;
+    --fg: #E2EFEC;
+    --muted: #8CA8A3;
+    --accent: #3DB8A6;
+    --accent-soft: #16403B;
+    --accent-fg: #06211D;
+    --ok: #52C06B;
+    --bad: #EF6B6B;
+    --scrim: rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0D1817;
+  --surface: #142423;
+  --line: #223937;
+  --fg: #E2EFEC;
+  --muted: #8CA8A3;
+  --accent: #3DB8A6;
+  --accent-soft: #16403B;
+  --accent-fg: #06211D;
+  --ok: #52C06B;
+  --bad: #EF6B6B;
+  --scrim: rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  direction: rtl;
+  min-height: 100vh;
+  margin: 0;
+  padding-block: 14px 112px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}

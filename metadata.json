@@ -1,0 +1,6 @@
+{
+  "name": "منصة إرواء التعليمية",
+  "description": "منصة تعليمية متكاملة للطلاب والمعلمين: جدول الدروس، الحضور، الاختبارات، المشاريع، والشهادات مع لوحة تحكم كاملة للإدارة والمشرفين.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
