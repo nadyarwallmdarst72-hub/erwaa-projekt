@@ -175,9 +175,10 @@ export const CertificatesView: React.FC<CertificatesViewProps> = ({
 
       {/* Courses & Certificates List */}
       {enrolledCourses.length > 0 ? (
-        enrolledCourses.map((course) => {
-          const stats = getCourseStats(course.id);
-          const isIssued = !!stats.cert;
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {enrolledCourses.map((course) => {
+            const stats = getCourseStats(course.id);
+            const isIssued = !!stats.cert;
 
           return (
             <div
@@ -298,7 +299,8 @@ export const CertificatesView: React.FC<CertificatesViewProps> = ({
               )}
             </div>
           );
-        })
+        })}
+        </div>
       ) : (
         <div className="p-8 rounded-2xl border border-[var(--line)] bg-[var(--surface)] text-center text-sm text-[var(--muted)]">
           <p className="m-0 mb-3">سجّل في إحدى الدورات لتتابع نسبة حضورك وتستحق الشهادة.</p>

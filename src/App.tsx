@@ -643,8 +643,8 @@ export default function App() {
   };
 
   return (
-    <div className="max-w-[560px] mx-auto min-h-screen flex flex-col justify-between">
-      <div>
+    <div className="w-full max-w-7xl mx-auto min-h-screen flex flex-col justify-between transition-all">
+      <div className="w-full">
         {/* Header with Notifications & Edit Profile triggers */}
         <Header
           site={store.site}

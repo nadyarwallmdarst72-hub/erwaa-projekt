@@ -169,7 +169,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
         </div>
 
         {filteredCourses.length > 0 ? (
-          <div className="divide-y divide-[var(--line)]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 sm:p-4">
             {filteredCourses.map((course) => {
               const isEnrolled = !!enrolled[course.id];
               const courseLessons = lessons.filter((l) => l.courseId === course.id);
@@ -179,7 +179,7 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
               return (
                 <div
                   key={course.id}
-                  className="p-4 flex flex-col gap-3 hover:bg-[var(--accent-soft)]/10 transition-colors"
+                  className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--accent)] flex flex-col justify-between gap-3 shadow-xs transition-all"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">

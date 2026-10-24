@@ -245,7 +245,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
       {/* Projects List */}
       {projects.length > 0 ? (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {projects.map((p) => {
             const review = reviews[p.id];
             const badge = getStatusBadge(p, review);

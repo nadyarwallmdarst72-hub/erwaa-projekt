@@ -486,20 +486,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
 
       {/* Sub-tabs pills */}
-      <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-xs">
+      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-xs overflow-x-auto no-scrollbar md:flex-wrap">
         {[
           ...(isOwner
             ? [
                 {
                   key: 'users' as AdminTab,
-                  label: `المستخدمون والقبول (${users.length})`,
+                  label: `المستخدمون (${users.length})`,
                   icon: <Users className="w-4 h-4" />,
                   badge: pendingUsers.length > 0 ? pendingUsers.length : undefined,
                 },
               ]
             : []),
           { key: 'students' as AdminTab, label: 'الطلاب ونسب الحضور', icon: <GraduationCap className="w-4 h-4" /> },
-          { key: 'courses' as AdminTab, label: 'الدورات', icon: <BookOpen className="w-4 h-4" /> },
+          { key: 'courses' as AdminTab, label: 'الدورات والمواد', icon: <BookOpen className="w-4 h-4" /> },
           { key: 'lessons' as AdminTab, label: 'الدروس والجدول', icon: <CalendarDays className="w-4 h-4" /> },
           { key: 'quizzes' as AdminTab, label: 'الاختبارات', icon: <HelpCircle className="w-4 h-4" /> },
           {
@@ -530,7 +530,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               setActiveTab(tab.key);
               setSelectedStudentDrilldownId(null);
             }}
-            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex-shrink-0 ${
               activeTab === tab.key
                 ? 'bg-[var(--accent)] text-white shadow-xs'
                 : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--accent-soft)]/50'

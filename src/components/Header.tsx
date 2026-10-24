@@ -30,18 +30,18 @@ export const Header: React.FC<HeaderProps> = ({
   const isOwner = currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
 
   return (
-    <header className="flex items-center justify-between gap-3 py-2 px-1 border-b border-[var(--line)] pb-3 mb-2">
+    <header className="flex items-center justify-between gap-2 sm:gap-3 py-2 border-b border-[var(--line)] pb-3 mb-3 w-full">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-shrink">
         {site.logo ? (
           <img
             src={site.logo}
             alt={site.name}
-            className="h-10 max-w-[120px] object-contain rounded-md"
+            className="h-8 sm:h-10 max-w-[90px] sm:max-w-[130px] object-contain rounded-md flex-shrink-0"
           />
         ) : (
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shadow-sm"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-bold text-sm sm:text-lg shadow-sm flex-shrink-0"
             style={{
               backgroundColor: 'var(--accent-soft)',
               color: 'var(--accent)',
@@ -52,13 +52,13 @@ export const Header: React.FC<HeaderProps> = ({
         )}
         <div className="min-w-0">
           <h1
-            className="font-bold text-lg sm:text-xl leading-tight truncate font-display"
+            className="font-bold text-base sm:text-xl leading-tight truncate font-display"
             style={{ color: 'var(--accent)' }}
           >
             {site.name || 'إرواء'}
           </h1>
           {site.tagline && (
-            <p className="text-[11px] text-[var(--muted)] truncate m-0 font-body">
+            <p className="text-[10px] sm:text-[11px] text-[var(--muted)] truncate m-0 font-body hidden xs:block">
               {site.tagline}
             </p>
           )}

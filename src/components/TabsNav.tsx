@@ -45,20 +45,22 @@ export const TabsNav: React.FC<TabsNavProps> = ({
     projects: 'المشاريع',
   };
 
-  const tabs: { key: MainTabKey; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'cal', label: labels.cal, icon: <CalendarDays className="w-5 h-5" /> },
-    { key: 'courses', label: labels.courses || 'الدورات والمواد', icon: <BookOpen className="w-5 h-5" /> },
+  const tabs: { key: MainTabKey; label: string; shortLabel: string; icon: React.ReactNode; badge?: number }[] = [
+    { key: 'cal', label: labels.cal || 'لوحتي', shortLabel: 'لوحتي', icon: <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5" /> },
+    { key: 'courses', label: labels.courses || 'المقررات والمواد', shortLabel: 'المقررات', icon: <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" /> },
     {
       key: 'questions',
       label: labels.questions || 'الأسئلة العلمية',
-      icon: <MessageSquareQuote className="w-5 h-5" />,
+      shortLabel: 'الأسئلة',
+      icon: <MessageSquareQuote className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
-    { key: 'quiz', label: labels.quiz, icon: <HelpCircle className="w-5 h-5" /> },
-    { key: 'certs', label: labels.certs, icon: <Award className="w-5 h-5" /> },
+    { key: 'quiz', label: labels.quiz || 'الاختبارات', shortLabel: 'الاختبارات', icon: <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" /> },
+    { key: 'certs', label: labels.certs || 'الشهادات', shortLabel: 'الشهادات', icon: <Award className="w-4 h-4 sm:w-5 sm:h-5" /> },
     {
       key: 'projects',
-      label: labels.projects,
-      icon: <FolderKanban className="w-5 h-5" />,
+      label: labels.projects || 'المشاريع',
+      shortLabel: 'المشاريع',
+      icon: <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5" />,
     },
   ];
 
@@ -66,21 +68,22 @@ export const TabsNav: React.FC<TabsNavProps> = ({
     tabs.push({
       key: 'admin',
       label: 'الإدارة',
-      icon: <Settings className="w-5 h-5" />,
+      shortLabel: 'الإدارة',
+      icon: <Settings className="w-4 h-4 sm:w-5 sm:h-5" />,
       badge: pendingProjectsCount > 0 ? pendingProjectsCount : undefined,
     });
   }
 
   return (
     <nav
-      className="fixed left-0 right-0 bottom-0 z-30 bg-[var(--surface)] border-t border-[var(--line)] shadow-lg"
+      className="fixed left-0 right-0 bottom-0 z-40 bg-[var(--surface)]/95 backdrop-blur-md border-t border-[var(--line)] shadow-xl transition-all"
       style={{
-        paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))',
-        paddingTop: '6px',
+        paddingBottom: 'max(6px, env(safe-area-inset-bottom, 6px))',
+        paddingTop: '4px',
       }}
       aria-label="شريط التنقل الرئيسي"
     >
-      <div className="max-w-[560px] mx-auto px-1 grid grid-flow-col auto-cols-fr gap-0.5">
+      <div className="max-w-4xl mx-auto px-1 sm:px-3 flex items-center justify-around gap-0.5 sm:gap-2">
         {tabs.map((tab) => {
           const isActive = currentTab === tab.key;
           return (
@@ -88,10 +91,10 @@ export const TabsNav: React.FC<TabsNavProps> = ({
               key={tab.key}
               type="button"
               onClick={() => onTabChange(tab.key)}
-              className={`relative flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
+              className={`relative flex-1 max-w-[120px] flex flex-col items-center justify-center py-1 sm:py-1.5 px-0.5 sm:px-2 rounded-xl transition-all cursor-pointer ${
                 isActive
                   ? 'font-bold'
-                  : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--accent-soft)]/40'
+                  : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--accent-soft)]/50'
               }`}
               style={{
                 color: isActive ? 'var(--accent)' : undefined,
@@ -101,13 +104,14 @@ export const TabsNav: React.FC<TabsNavProps> = ({
               <div className="relative">
                 {tab.icon}
                 {tab.badge ? (
-                  <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full min-w-[16px] text-center shadow-xs">
+                  <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[9px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.1 rounded-full min-w-[15px] text-center shadow-xs">
                     {tab.badge}
                   </span>
                 ) : null}
               </div>
-              <span className="text-[10px] sm:text-[11px] leading-tight mt-1 truncate max-w-full font-body">
-                {tab.label}
+              <span className="text-[10px] sm:text-[11px] leading-tight mt-0.5 sm:mt-1 truncate max-w-full font-body">
+                <span className="inline sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
               </span>
               {isActive && (
                 <span

@@ -136,7 +136,7 @@ export const QuizzesView: React.FC<QuizzesViewProps> = ({
       timeRemainingSeconds !== null && timeRemainingSeconds <= 60 && !isCompleted;
 
     return (
-      <div className="grid gap-4">
+      <div className="max-w-2xl mx-auto w-full grid gap-4">
         {/* Sticky Timer Bar */}
         {timeRemainingSeconds !== null && !isCompleted && (
           <div
@@ -330,7 +330,7 @@ export const QuizzesView: React.FC<QuizzesViewProps> = ({
         </div>
 
         {studentQuizzes.length > 0 ? (
-          <div className="divide-y divide-[var(--line)]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 sm:p-4">
             {studentQuizzes.map((quiz) => {
               const course = courseOf(quiz.courseId);
               const state = getQuizState(quiz);
@@ -339,7 +339,7 @@ export const QuizzesView: React.FC<QuizzesViewProps> = ({
               return (
                 <div
                   key={quiz.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[var(--accent-soft)]/20 transition-colors"
+                  className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--accent)] flex flex-col justify-between gap-3 shadow-xs transition-all"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">

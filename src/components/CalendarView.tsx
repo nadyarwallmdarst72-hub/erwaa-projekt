@@ -147,7 +147,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="space-y-4">
       {/* Welcome & Announcements Banner */}
       {(site.welcomeTitle || site.welcomeText) && (
         <div
@@ -173,40 +173,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       )}
 
-      {/* Announcements */}
-      {blocks.filter(isVisibleForStudent).map((b) => (
-        <div
-          key={b.id}
-          className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs grid gap-2"
-        >
-          <h4 className="font-bold text-base m-0 text-[var(--fg)] font-display">
-            {b.title}
-          </h4>
-          {b.text && (
-            <p className="text-sm text-[var(--muted)] m-0 whitespace-pre-line font-body leading-relaxed">
-              {b.text}
-            </p>
-          )}
-          {b.linkUrl && (
-            <div>
-              <a
-                href={b.linkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
-              >
-                <span>{b.linkLabel || 'افتح الرابط'}</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          )}
-        </div>
-      ))}
-
-      {/* Calendar Card */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
-        {/* Month Selector */}
-        <div className="flex items-center justify-between p-3.5 border-b border-[var(--line)]">
+      {/* Main Responsive Grid: Stacks on mobile portrait, side-by-side on landscape/desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
+        {/* Main Column: Calendar & Continue Watching */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+          {/* Calendar Card */}
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
+            {/* Month Selector */}
+            <div className="flex items-center justify-between p-3.5 border-b border-[var(--line)]">
           <h2 className="text-base font-bold font-display m-0 flex-1">
             {new Date(currentYear, currentMonth, 1).toLocaleDateString(AR_LOCALE, {
               month: 'long',
@@ -339,6 +313,55 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
+      {/* Continue Watching Section */}
+      {continueWatching.length > 0 && (
+        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
+          <div className="flex items-center justify-between p-3.5 border-b border-[var(--line)]">
+            <h3 className="font-bold text-base m-0 font-display flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[var(--accent)]" />
+              تابع المشاهدة
+            </h3>
+            <span className="text-xs text-[var(--muted)]">
+              {continueWatching.length === 1
+                ? 'درس واحد'
+                : `${continueWatching.length} دروس قيد المتابعة`}
+            </span>
+          </div>
+          <div className="divide-y divide-[var(--line)]">
+            {continueWatching.map((l) => {
+              const course = courseOfLesson(l.courseId);
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => {
+                    onOpenLesson(l.id);
+                    setActiveSheetLessonId(l.id);
+                  }}
+                  className="w-full flex items-center gap-3 p-3.5 text-right hover:bg-[var(--accent-soft)]/40 transition-colors cursor-pointer group"
+                >
+                  <span className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0">
+                    <PlayCircle className="w-4 h-4" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm m-0 truncate text-[var(--fg)]">
+                      {l.title}
+                    </h4>
+                    <p className="text-xs text-[var(--muted)] m-0 truncate">
+                      {course?.title || 'عام'} · {formatLongDate(l.date)}
+                    </p>
+                  </div>
+                  <ChevronLeft className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Side Column: Selected Day Lessons & Announcements */}
+    <div className="lg:col-span-5 xl:col-span-4 space-y-4">
       {/* Selected Day's Lessons List */}
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
         <div className="flex items-center justify-between p-3.5 border-b border-[var(--line)]">
@@ -407,51 +430,37 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         )}
       </div>
 
-      {/* Continue Watching Section */}
-      {continueWatching.length > 0 && (
-        <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
-          <div className="flex items-center justify-between p-3.5 border-b border-[var(--line)]">
-            <h3 className="font-bold text-base m-0 font-display flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[var(--accent)]" />
-              تابع المشاهدة
-            </h3>
-            <span className="text-xs text-[var(--muted)]">
-              {continueWatching.length === 1
-                ? 'درس واحد'
-                : `${continueWatching.length} دروس قيد المتابعة`}
-            </span>
-          </div>
-          <div className="divide-y divide-[var(--line)]">
-            {continueWatching.map((l) => {
-              const course = courseOfLesson(l.courseId);
-              return (
-                <button
-                  key={l.id}
-                  type="button"
-                  onClick={() => {
-                    onOpenLesson(l.id);
-                    setActiveSheetLessonId(l.id);
-                  }}
-                  className="w-full flex items-center gap-3 p-3.5 text-right hover:bg-[var(--accent-soft)]/40 transition-colors cursor-pointer group"
-                >
-                  <span className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0">
-                    <PlayCircle className="w-4 h-4" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm m-0 truncate text-[var(--fg)]">
-                      {l.title}
-                    </h4>
-                    <p className="text-xs text-[var(--muted)] m-0 truncate">
-                      {course?.title || 'عام'} · {formatLongDate(l.date)}
-                    </p>
-                  </div>
-                  <ChevronLeft className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors" />
-                </button>
-              );
-            })}
-          </div>
+      {/* Announcements */}
+      {blocks.filter(isVisibleForStudent).map((b) => (
+        <div
+          key={b.id}
+          className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs grid gap-2"
+        >
+          <h4 className="font-bold text-base m-0 text-[var(--fg)] font-display">
+            {b.title}
+          </h4>
+          {b.text && (
+            <p className="text-sm text-[var(--muted)] m-0 whitespace-pre-line font-body leading-relaxed">
+              {b.text}
+            </p>
+          )}
+          {b.linkUrl && (
+            <div>
+              <a
+                href={b.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
+              >
+                <span>{b.linkLabel || 'افتح الرابط'}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          )}
         </div>
-      )}
+      ))}
+    </div>
+  </div>
 
       {/* Lesson Details Bottom Sheet / Modal */}
       {sheetLesson && (
@@ -461,7 +470,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             onClick={() => setActiveSheetLessonId(null)}
           />
           <div
-            className="relative z-10 w-full max-w-[540px] bg-[var(--surface)] border border-[var(--line)] rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto animate-slide-up grid gap-4"
+            className="relative z-10 w-full max-w-[540px] bg-[var(--surface)] border border-[var(--line)] rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 shadow-2xl max-h-[88dvh] overflow-y-auto animate-slide-up grid gap-3.5"
             role="dialog"
             aria-modal="true"
             aria-label={sheetLesson.title}
