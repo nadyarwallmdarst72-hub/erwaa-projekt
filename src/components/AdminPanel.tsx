@@ -465,11 +465,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
             <div>
-              <span className="font-bold block">
+              <span className="font-bold flex items-center gap-1.5 flex-wrap">
                 لوحة تحكم مالك المنصة
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[10px] font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  قاعدة بيانات سحابية موحدة (مزامنة فورية)
+                </span>
               </span>
-              <span className="text-[11px] opacity-85">
-                أنت الوحيد المخوّل بقبول المستخدمين الجدد، ترقية الطلاب، وإغلاق أو حذف الحسابات.
+              <span className="text-[11px] opacity-85 block">
+                تصل طلبات الالتحاق لحظياً من أي هاتف أو كمبيوتر وتظهر فوراً هنا للموافقة عليها وتفعيلها دون الحاجة لإعادة تحميل الصفحة.
               </span>
             </div>
           </div>

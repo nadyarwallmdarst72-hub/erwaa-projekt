@@ -709,6 +709,71 @@ class AppStorageManager {
     };
   }
 
+  // --- Cloud Sync Mergers ---
+  public mergeCloudUsers(cloudUsers: UserAccount[]) {
+    this.update((draft) => {
+      cloudUsers.forEach((cu) => {
+        const idx = draft.users.findIndex(
+          (u) => u.id === cu.id || u.email.toLowerCase() === cu.email.toLowerCase()
+        );
+        if (idx >= 0) {
+          draft.users[idx] = { ...draft.users[idx], ...cu };
+        } else {
+          draft.users.push(cu);
+        }
+
+        if (cu.role === 'student' || cu.role === 'owner') {
+          const sIdx = draft.students.findIndex(
+            (s) => s.id === cu.id || s.email?.toLowerCase() === cu.email.toLowerCase()
+          );
+          if (sIdx >= 0) {
+            draft.students[sIdx].name = cu.name;
+          } else {
+            draft.students.push({
+              id: cu.id,
+              name: cu.name,
+              email: cu.email,
+              joinedAt: cu.joinedAt,
+            });
+          }
+        }
+      });
+
+      if (draft.currentUid) {
+        const cur = draft.users.find((u) => u.id === draft.currentUid);
+        if (cur) {
+          draft.currentRole = cur.role;
+        }
+      }
+    });
+  }
+
+  public mergeCloudAnnouncements(cloudAnnouncements: Announcement[]) {
+    this.update((draft) => {
+      cloudAnnouncements.forEach((ca) => {
+        const idx = draft.blocks.findIndex((b) => b.id === ca.id);
+        if (idx >= 0) {
+          draft.blocks[idx] = { ...draft.blocks[idx], ...ca };
+        } else {
+          draft.blocks.unshift(ca);
+        }
+      });
+    });
+  }
+
+  public mergeCloudQuestions(cloudQuestions: ScientificQuestion[]) {
+    this.update((draft) => {
+      cloudQuestions.forEach((cq) => {
+        const idx = draft.questions.findIndex((q) => q.id === cq.id);
+        if (idx >= 0) {
+          draft.questions[idx] = { ...draft.questions[idx], ...cq };
+        } else {
+          draft.questions.unshift(cq);
+        }
+      });
+    });
+  }
+
   // --- Profile Edit ---
   public updateProfile(uid: string, updates: Partial<UserAccount>) {
     this.update((draft) => {

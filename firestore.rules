@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User accounts and admissions requests
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.resource.data.email is string
+                    && request.resource.data.name is string;
+      allow update, delete: if true;
+    }
+
+    // Announcements
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Scientific Questions & Discussions
+    match /questions/{questionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Site Configuration
+    match /site_settings/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

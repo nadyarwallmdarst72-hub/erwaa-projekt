@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User accounts, student admission requests, and roles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user identifier" },
+        "email": { "type": "string", "description": "User email address" },
+        "name": { "type": "string", "description": "Full display name" },
+        "role": { "type": "string", "enum": ["owner", "teacher", "student"], "description": "User role in the platform" },
+        "status": { "type": "string", "enum": ["active", "pending", "suspended"], "description": "Account admission status" },
+        "joinedAt": { "type": "number", "description": "Join timestamp in ms" },
+        "lastLoginAt": { "type": "number", "description": "Last login timestamp" },
+        "accountCode": { "type": "string", "description": "Account secret access code" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "bio": { "type": "string", "description": "User biography or specialty" },
+        "avatar": { "type": "string", "description": "Avatar icon or image URL" }
+      },
+      "required": ["id", "email", "name", "role", "status", "joinedAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Platform announcements broadcast across devices",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique announcement ID" },
+        "title": { "type": "string", "description": "Announcement title" },
+        "body": { "type": "string", "description": "Announcement content" },
+        "type": { "type": "string", "description": "Announcement type" },
+        "urgent": { "type": "boolean", "description": "Urgent priority flag" },
+        "at": { "type": "number", "description": "Publish timestamp" },
+        "pinned": { "type": "boolean", "description": "Pinned to top" },
+        "author": { "type": "string", "description": "Author name" },
+        "authorRole": { "type": "string", "description": "Author role" }
+      },
+      "required": ["id", "title", "body", "type", "at"]
+    },
+    "ScientificQuestion": {
+      "title": "ScientificQuestion",
+      "description": "Academic inquiries and student questions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Question identifier" },
+        "uid": { "type": "string", "description": "Author student ID" },
+        "authorName": { "type": "string", "description": "Author display name" },
+        "courseId": { "type": "string", "description": "Related course or subject ID" },
+        "courseTitle": { "type": "string", "description": "Related course title" },
+        "title": { "type": "string", "description": "Question subject" },
+        "content": { "type": "string", "description": "Question text" },
+        "createdAt": { "type": "number", "description": "Creation timestamp" },
+        "status": { "type": "string", "enum": ["open", "resolved"], "description": "Question status" }
+      },
+      "required": ["id", "uid", "authorName", "title", "content", "createdAt", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Collection of user accounts, applications, and admission requests"
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Platform announcements and news"
+    },
+    "/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/ScientificQuestion" },
+      "description": "Academic forum questions and answers"
+    }
+  }
+}

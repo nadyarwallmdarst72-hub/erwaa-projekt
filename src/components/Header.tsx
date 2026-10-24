@@ -12,6 +12,7 @@ interface HeaderProps {
   onLogout: () => void;
   darkTheme: boolean;
   onToggleTheme: () => void;
+  cloudStatus?: 'connected' | 'syncing' | 'error';
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   darkTheme,
   onToggleTheme,
+  cloudStatus = 'connected',
 }) => {
   const isOwner = currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
 
@@ -64,6 +66,35 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-1.5 flex-shrink-0">
+        {/* Cloud Sync Status Indicator */}
+        <div
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-xl text-[10px] font-semibold border ${
+            cloudStatus === 'connected'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+              : cloudStatus === 'syncing'
+              ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+              : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+          }`}
+          title="قاعدة بيانات سحابية موحدة ومتزامنة لحظياً (Firestore)"
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              cloudStatus === 'connected'
+                ? 'bg-emerald-500 animate-pulse'
+                : cloudStatus === 'syncing'
+                ? 'bg-blue-500 animate-ping'
+                : 'bg-amber-500'
+            }`}
+          />
+          <span className="hidden sm:inline">
+            {cloudStatus === 'connected'
+              ? 'سحابة متصلة'
+              : cloudStatus === 'syncing'
+              ? 'مزامنة...'
+              : 'سحابي'}
+          </span>
+        </div>
+
         {/* Notification Bell */}
         <button
           type="button"

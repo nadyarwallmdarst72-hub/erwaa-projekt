@@ -19,8 +19,21 @@ import {
   Role,
   UserAccount,
   CourseMaterial,
+  ScientificQuestion,
   OWNER_EMAIL,
 } from './types';
+import {
+  initCloudSync,
+  saveUserToCloud,
+  updateUserStatusInCloud,
+  updateUserRoleInCloud,
+  updateUserProfileInCloud,
+  deleteUserFromCloud,
+  saveAnnouncementToCloud,
+  deleteAnnouncementFromCloud,
+  saveQuestionToCloud,
+  deleteQuestionFromCloud,
+} from './services/cloudSync';
 import { Header } from './components/Header';
 import { TabsNav, MainTabKey } from './components/TabsNav';
 import { CalendarView } from './components/CalendarView';
@@ -43,6 +56,13 @@ export default function App() {
 
   const [currentTab, setCurrentTab] = useState<MainTabKey>('cal');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [cloudStatus, setCloudStatus] = useState<'connected' | 'syncing' | 'error'>('syncing');
+
+  useEffect(() => {
+    initCloudSync((status) => {
+      setCloudStatus(status);
+    });
+  }, []);
 
   // Modals state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -134,11 +154,12 @@ export default function App() {
   const handleRegister = (email: string, code: string, name: string) => {
     const res = appStorage.registerWithCode(email, code, name);
     if (res.success && res.user) {
+      saveUserToCloud(res.user);
       const isOwnerLogin = res.user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
       showToast(
         isOwnerLogin
           ? `تم إنشاء وتفعيل حساب مالك المنصة (${res.user.name}) بنجاح!`
-          : 'تم إنشاء حسابك بنجاح! بانتظار موافقة مالك المنصة لتفعيل وصولك للمقررات.'
+          : 'تم إرسال طلب انضمامك لقاعدة البيانات السحابية بنجاح! بانتظار موافقة مالك المنصة لتفعيل وصولك.'
       );
     }
     return res;
@@ -153,6 +174,7 @@ export default function App() {
   const handleUpdateProfile = (updates: Partial<UserAccount>) => {
     if (!currentUser) return;
     appStorage.updateProfile(currentUser.id, updates);
+    updateUserProfileInCloud(currentUser.id, updates);
     showToast('تم حفظ وتحديث بيانات ملفك الشخصي بنجاح.');
   };
 
@@ -183,11 +205,18 @@ export default function App() {
       setIsAuthModalOpen(true);
       return;
     }
-    appStorage.addScientificQuestion({
+    const newQId = `q_${Date.now()}`;
+    const questionObj: ScientificQuestion = {
+      id: newQId,
       uid: currentUser.id,
       authorName: currentUser.name,
       ...data,
-    });
+      createdAt: Date.now(),
+      answers: [],
+      status: 'open',
+    };
+    appStorage.addScientificQuestion(questionObj);
+    saveQuestionToCloud(questionObj);
     // Add in-app notification
     appStorage.addNotification({
       title: 'سؤال علمي جديد في المنصة',
@@ -195,7 +224,7 @@ export default function App() {
       type: 'question',
       linkTab: 'questions',
     });
-    showToast('تم نشر سؤالك العلمي في منتدى المنصة بنجاح!');
+    showToast('تم نشر سؤالك العلمي في السحابة بنجاح!');
   };
 
   const handleAddScientificAnswer = (questionId: string, content: string) => {
@@ -209,16 +238,25 @@ export default function App() {
       authorRole: currentUser.role,
       content,
     });
-    showToast('تمت إضافة إجابتك العلمية.');
+    const updatedQ = appStorage.getSnapshot().questions.find((q) => q.id === questionId);
+    if (updatedQ) {
+      saveQuestionToCloud(updatedQ);
+    }
+    showToast('تمت إضافة إجابتك العلمية ومزامنتها.');
   };
 
   const handleToggleVerifyAnswer = (questionId: string, answerId: string) => {
     appStorage.toggleVerifyAnswer(questionId, answerId);
+    const updatedQ = appStorage.getSnapshot().questions.find((q) => q.id === questionId);
+    if (updatedQ) {
+      saveQuestionToCloud(updatedQ);
+    }
     showToast('تم تحديث حالة اعتماد الإجابة.');
   };
 
   const handleDeleteScientificQuestion = (questionId: string) => {
     appStorage.deleteScientificQuestion(questionId);
+    deleteQuestionFromCloud(questionId);
     showToast('تم حذف السؤال العلمي.');
   };
 
@@ -422,25 +460,29 @@ export default function App() {
   // --- Owner User Management Actions ---
   const handleApproveUser = (uid: string) => {
     appStorage.approveUser(uid);
-    showToast('تم قبول المستخدم وتفعيل حسابه بالكامل.');
+    updateUserStatusInCloud(uid, 'active');
+    showToast('تم قبول المستخدم وتفعيل حسابه سحابياً بنجاح.');
   };
 
   const handleSuspendUser = (uid: string, suspend: boolean) => {
     appStorage.suspendUser(uid, suspend);
-    showToast(suspend ? 'تم إغلاق وتعليق حساب المستخدم.' : 'تمت إعادة فتح وتفعيل الحساب.');
+    updateUserStatusInCloud(uid, suspend ? 'suspended' : 'active');
+    showToast(suspend ? 'تم إغلاق وتعليق حساب المستخدم سحابياً.' : 'تمت إعادة فتح وتفعيل الحساب سحابياً.');
   };
 
   const handleDeleteUser = (uid: string) => {
     appStorage.deleteUser(uid);
-    showToast('تم حذف المستخدم وجميع سجلاته بنجاح.');
+    deleteUserFromCloud(uid);
+    showToast('تم حذف المستخدم وجميع سجلاته من السحابة بنجاح.');
   };
 
   const handlePromoteUser = (uid: string, newRole: Role) => {
     appStorage.promoteUser(uid, newRole);
+    updateUserRoleInCloud(uid, newRole);
     showToast(
       newRole === 'teacher'
-        ? 'تمت ترقية الطالب إلى رتبة معلم مشرف.'
-        : 'تم تغيير دور المستخدم إلى طالب.'
+        ? 'تمت ترقية الطالب إلى رتبة معلم مشرف في السحابة.'
+        : 'تم تغيير دور المستخدم إلى طالب في السحابة.'
     );
   };
 
@@ -538,6 +580,18 @@ export default function App() {
   };
 
   const handleSaveBlock = (blockData: Partial<Announcement>, id?: string) => {
+    const annId = id || `ann_${Date.now()}`;
+    const annObj: Announcement = {
+      id: annId,
+      title: blockData.title || '',
+      text: blockData.text || '',
+      linkLabel: blockData.linkLabel || '',
+      linkUrl: blockData.linkUrl || '',
+      courseId: blockData.courseId || '',
+      createdAt: Date.now(),
+    };
+    saveAnnouncementToCloud(annObj);
+
     appStorage.update((draft) => {
       if (id) {
         const idx = draft.blocks.findIndex((b) => b.id === id);
@@ -545,16 +599,7 @@ export default function App() {
           draft.blocks[idx] = { ...draft.blocks[idx], ...blockData };
         }
       } else {
-        const newId = `ann_${Date.now()}`;
-        draft.blocks.push({
-          id: newId,
-          title: blockData.title || '',
-          text: blockData.text || '',
-          linkLabel: blockData.linkLabel || '',
-          linkUrl: blockData.linkUrl || '',
-          courseId: blockData.courseId || '',
-          createdAt: Date.now(),
-        });
+        draft.blocks.push(annObj);
 
         // Broadcast notification to all students
         draft.notifications.unshift({
@@ -568,14 +613,15 @@ export default function App() {
         });
       }
     });
-    showToast(id ? 'تم تعديل الإعلان' : 'تم نشر الإعلان وإرسال إشعار للطلاب');
+    showToast(id ? 'تم تعديل الإعلان سحابياً' : 'تم نشر الإعلان سحابياً وإرسال إشعار للطلاب');
   };
 
   const handleDeleteBlock = (id: string) => {
     appStorage.update((draft) => {
       draft.blocks = draft.blocks.filter((b) => b.id !== id);
     });
-    showToast('تم حذف الإعلان');
+    deleteAnnouncementFromCloud(id);
+    showToast('تم حذف الإعلان من السحابة');
   };
 
   const handleUpdateSite = (newSite: SiteSettings) => {
@@ -610,6 +656,7 @@ export default function App() {
           onLogout={handleLogout}
           darkTheme={darkTheme}
           onToggleTheme={handleToggleTheme}
+          cloudStatus={cloudStatus}
         />
 
         {/* Guest Warning / Pending Approval Banner */}
@@ -636,7 +683,7 @@ export default function App() {
             <div>
               <span className="font-bold block">طلب انضمامك قيد المراجعة</span>
               <span className="opacity-90 leading-relaxed">
-                حسابك بانتظار موافقة مالك الموقع ({OWNER_EMAIL}) لاعتماد تسجيلك وتفعيل صلاحيات الحضور والاختبارات.
+                حسابك بانتظار موافقة مالك المنصة لاعتماد تسجيلك وتفعيل صلاحيات الحضور والاختبارات.
               </span>
             </div>
           </div>
