@@ -466,7 +466,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
             <div>
               <span className="font-bold block">
-                لوحة مالك الموقع: {OWNER_EMAIL}
+                لوحة تحكم مالك المنصة
               </span>
               <span className="text-[11px] opacity-85">
                 أنت الوحيد المخوّل بقبول المستخدمين الجدد، ترقية الطلاب، وإغلاق أو حذف الحسابات.

@@ -15,6 +15,7 @@ export interface UserAccount {
   bio?: string;
   avatar?: string;
   phone?: string;
+  accountCode?: string;
 }
 
 export interface VerificationCode {

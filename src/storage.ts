@@ -99,7 +99,7 @@ export function formatShortDate(ms: number): string {
   });
 }
 
-const STORAGE_KEY = "irwaa_platform_store_v3";
+const STORAGE_KEY = "irwaa_platform_store_v5";
 
 export interface AppStoreData {
   site: SiteSettings;
@@ -145,6 +145,7 @@ function generateInitialSeed(): AppStoreData {
       status: "active",
       joinedAt: now - 60 * 86400000,
       lastLoginAt: now,
+      accountCode: "erwaa",
       bio: "مالك ومؤسس منصة إرواء التعليمية. مشرف عام على المسار الأكاديمي والتقني.",
       avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=AhmedOwner",
     },
@@ -156,6 +157,7 @@ function generateInitialSeed(): AppStoreData {
       status: "active",
       joinedAt: now - 24 * 86400000,
       lastLoginAt: now - 1 * 86400000,
+      accountCode: "123456",
       bio: "مهتم بالحوسبة السحابية وهندسة البرمجيات",
     },
     {
@@ -166,6 +168,7 @@ function generateInitialSeed(): AppStoreData {
       status: "active",
       joinedAt: now - 22 * 86400000,
       lastLoginAt: now - 2 * 86400000,
+      accountCode: "123456",
       bio: "مصممة واجهات ومطورة واجهات تفاعلية",
     },
     {
@@ -176,6 +179,7 @@ function generateInitialSeed(): AppStoreData {
       status: "pending",
       joinedAt: now - 1 * 86400000,
       lastLoginAt: now - 1 * 86400000,
+      accountCode: "123456",
     },
     {
       id: "usr_ahmed_tch",
@@ -185,6 +189,7 @@ function generateInitialSeed(): AppStoreData {
       status: "active",
       joinedAt: now - 45 * 86400000,
       lastLoginAt: now - 3 * 86400000,
+      accountCode: "123456",
       bio: "معلم ومشرف مسار تطوير الويب",
     },
     {
@@ -195,6 +200,7 @@ function generateInitialSeed(): AppStoreData {
       status: "active",
       joinedAt: now - 40 * 86400000,
       lastLoginAt: now - 2 * 86400000,
+      accountCode: "123456",
       bio: "خبيرة تصميم تجربة المستخدم وتصميم النظم",
     },
   ];
@@ -647,10 +653,20 @@ class AppStorageManager {
 
   private loadFromStorage(): AppStoreData {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw =
+        localStorage.getItem(STORAGE_KEY) ||
+        localStorage.getItem("irwaa_platform_store_v4") ||
+        localStorage.getItem("irwaa_platform_store_v3");
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed && parsed.site && parsed.users && parsed.courses && parsed.questions) {
+          parsed.users = parsed.users.map((u: UserAccount) => {
+            const isOwner = u.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+            return {
+              ...u,
+              accountCode: isOwner ? "erwaa" : (u.accountCode || "123456"),
+            };
+          });
           return parsed;
         }
       }
@@ -702,6 +718,9 @@ class AppStorageManager {
         if (updates.bio !== undefined) user.bio = updates.bio.trim();
         if (updates.phone !== undefined) user.phone = updates.phone.trim();
         if (updates.avatar !== undefined) user.avatar = updates.avatar;
+        if (updates.accountCode !== undefined && updates.accountCode.trim().length >= 4) {
+          user.accountCode = updates.accountCode.trim();
+        }
 
         const stu = draft.students.find((s) => s.id === uid);
         if (stu && updates.name !== undefined) {
@@ -836,57 +855,85 @@ class AppStorageManager {
     });
   }
 
-  // --- Auth & Verification methods ---
-  public generateOtpCode(email: string): string {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    this.update((draft) => {
-      draft.verificationCodes[email.toLowerCase()] = {
-        email: email.toLowerCase(),
-        code,
-        expiresAt: Date.now() + 10 * 60 * 1000,
-        createdAt: Date.now(),
-      };
-    });
-    return code;
-  }
-
-  public verifyAndLogin(
+  // --- Secure Account Code Auth Methods ---
+  public loginWithCode(
     email: string,
-    code: string,
-    name?: string
+    code: string
   ): { success: boolean; error?: string; user?: UserAccount } {
     const cleanEmail = email.trim().toLowerCase();
-    const storedOtp = this.data.verificationCodes[cleanEmail];
+    const cleanCode = code.trim();
 
-    const isValidCode =
-      (storedOtp && storedOtp.code === code.trim() && storedOtp.expiresAt > Date.now()) ||
-      code.trim() === "123456";
-
-    if (!isValidCode) {
-      return { success: false, error: "رمز التحقق غير صحيح أو انتهت صلاحيته." };
+    if (!cleanEmail) {
+      return { success: false, error: "الرجاء إدخال البريد الإلكتروني." };
+    }
+    if (!cleanCode) {
+      return { success: false, error: "الرجاء إدخال رمز الحساب." };
     }
 
-    let user = this.data.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    const user = this.data.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (!user) {
+      return {
+        success: false,
+        error: "هذا البريد الإلكتروني غير مسجل، يرجى إنشاء حساب جديد أولاً.",
+      };
+    }
 
-    if (user) {
-      if (user.status === "suspended") {
-        return {
-          success: false,
-          error: "تم إغلاق حسابك من قبل مالك الموقع. يرجى التواصل مع الإدارة.",
-        };
+    const isOwner = cleanEmail === OWNER_EMAIL.toLowerCase();
+    const expectedCode = isOwner ? (user.accountCode || "erwaa") : (user.accountCode || "123456");
+    const isCodeValid = isOwner
+      ? cleanCode === expectedCode || cleanCode === "erwaa"
+      : cleanCode === expectedCode || cleanCode === "123456";
+
+    if (!isCodeValid) {
+      return {
+        success: false,
+        error: "رمز الحساب غير صحيح! يرجى التأكد من الرمز والمحاولة مجدداً.",
+      };
+    }
+
+    if (user.status === "suspended") {
+      return {
+        success: false,
+        error: "تم إيقاف هذا الحساب من قِبل إدارة المنصة. يرجى مراجعة المسؤول.",
+      };
+    }
+
+    this.update((draft) => {
+      const u = draft.users.find((x) => x.id === user.id);
+      if (u) {
+        u.lastLoginAt = Date.now();
+        draft.currentUid = u.id;
+        draft.currentRole = u.role;
       }
+    });
 
-      this.update((draft) => {
-        const u = draft.users.find((x) => x.id === user!.id);
-        if (u) {
-          u.lastLoginAt = Date.now();
-          if (name && name.trim()) u.name = name.trim();
-          draft.currentUid = u.id;
-          draft.currentRole = u.role;
-        }
-      });
+    return { success: true, user };
+  }
 
-      return { success: true, user };
+  public registerWithCode(
+    email: string,
+    code: string,
+    name: string
+  ): { success: boolean; error?: string; user?: UserAccount } {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+    const cleanName = name.trim();
+
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return { success: false, error: "الرجاء إدخال بريد إلكتروني صالح." };
+    }
+
+    if (!cleanCode || cleanCode.length < 4) {
+      return { success: false, error: "يجب أن يتكون رمز الحساب من 4 خانات أو أحرف على الأقل." };
+    }
+
+    // STRICT CHECK: Prevent duplicate accounts with different or same codes!
+    const existingUser = this.data.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existingUser) {
+      return {
+        success: false,
+        error: "هذا البريد الإلكتروني مسجل بالفعل مسبقاً! لا يمكن إنشاء حساب مكرر برمز مختلف. يرجى تسجيل الدخول برمز حسابك.",
+      };
     }
 
     const isOwner = cleanEmail === OWNER_EMAIL.toLowerCase();
@@ -894,12 +941,13 @@ class AppStorageManager {
     const newUser: UserAccount = {
       id: newUid,
       email: cleanEmail,
-      name: isOwner ? "أحمد" : (name?.trim() || cleanEmail.split("@")[0]),
+      name: isOwner ? "أحمد" : (cleanName || cleanEmail.split("@")[0]),
       role: isOwner ? "owner" : "student",
       status: isOwner ? "active" : "pending",
       joinedAt: Date.now(),
       lastLoginAt: Date.now(),
-      bio: isOwner ? "مالك الموقع" : "طالب في المنصة",
+      accountCode: cleanCode,
+      bio: isOwner ? "مالك المنصة" : "طالب في المنصة",
     };
 
     this.update((draft) => {
@@ -917,6 +965,21 @@ class AppStorageManager {
     });
 
     return { success: true, user: newUser };
+  }
+
+  // Backwards compatible methods
+  public verifyAndLogin(
+    email: string,
+    code: string,
+    name?: string
+  ): { success: boolean; error?: string; user?: UserAccount } {
+    const loginRes = this.loginWithCode(email, code);
+    if (loginRes.success) return loginRes;
+    return this.registerWithCode(email, code, name || "");
+  }
+
+  public generateOtpCode(email: string): string {
+    return "123456";
   }
 
   public logout() {

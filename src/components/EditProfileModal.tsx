@@ -27,12 +27,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [name, setName] = useState(currentUser.name || '');
   const [bio, setBio] = useState(currentUser.bio || '');
   const [phone, setPhone] = useState(currentUser.phone || '');
+  const [accountCode, setAccountCode] = useState(currentUser.accountCode || '');
   const [selectedAvatar, setSelectedAvatar] = useState(currentUser.avatar || AVATAR_OPTIONS[0]);
 
   useEffect(() => {
     setName(currentUser.name || '');
     setBio(currentUser.bio || '');
     setPhone(currentUser.phone || '');
+    setAccountCode(currentUser.accountCode || '');
     setSelectedAvatar(currentUser.avatar || AVATAR_OPTIONS[0]);
   }, [currentUser]);
 
@@ -45,6 +47,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       bio: bio.trim(),
       phone: phone.trim(),
       avatar: selectedAvatar,
+      ...(accountCode.trim().length >= 4 ? { accountCode: accountCode.trim() } : {}),
     });
     onClose();
   };
@@ -182,6 +185,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+966 5X XXX XXXX"
             className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs sm:text-sm text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+          />
+        </label>
+
+        {/* Account Code input */}
+        <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+          <div className="flex items-center justify-between">
+            <span>رمز الحساب السري (لتسجيل الدخول)</span>
+            <span className="text-[10px] text-[var(--muted)] font-normal">4 خانات على الأقل</span>
+          </div>
+          <input
+            type="text"
+            dir="ltr"
+            value={accountCode}
+            onChange={(e) => setAccountCode(e.target.value)}
+            placeholder="أدخل رمز حساب سري جديد"
+            className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs sm:text-sm text-[var(--fg)] font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
           />
         </label>
 

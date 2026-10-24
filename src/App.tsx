@@ -118,22 +118,27 @@ export default function App() {
   const unreadNotificationsCount = userNotifications.filter((n) => !n.read).length;
 
   // --- Profile & Auth Handlers ---
-  const handleSendOtp = (email: string) => {
-    const code = appStorage.generateOtpCode(email);
-    showToast(`تم إرسال رمز التحقق إلى بريدك: ${email}`);
-    return code;
-  };
-
-  const handleVerify = (email: string, code: string, name?: string) => {
-    const res = appStorage.verifyAndLogin(email, code, name);
+  const handleLogin = (email: string, code: string) => {
+    const res = appStorage.loginWithCode(email, code);
     if (res.success && res.user) {
       const isOwnerLogin = res.user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
       showToast(
         isOwnerLogin
-          ? `أهلاً بك يا مالك الموقع (${res.user.name})!`
-          : res.user.status === 'pending'
-          ? 'تم إنشاء حسابك، بانتظار موافقة مالك الموقع لتفعيل الصلاحيات.'
+          ? `أهلاً بك مجدداً يا مالك المنصة (${res.user.name})!`
           : `أهلاً بك، ${res.user.name}!`
+      );
+    }
+    return res;
+  };
+
+  const handleRegister = (email: string, code: string, name: string) => {
+    const res = appStorage.registerWithCode(email, code, name);
+    if (res.success && res.user) {
+      const isOwnerLogin = res.user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+      showToast(
+        isOwnerLogin
+          ? `تم إنشاء وتفعيل حساب مالك المنصة (${res.user.name}) بنجاح!`
+          : 'تم إنشاء حسابك بنجاح! بانتظار موافقة مالك المنصة لتفعيل وصولك للمقررات.'
       );
     }
     return res;
@@ -805,8 +810,8 @@ export default function App() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onSendOtp={handleSendOtp}
-        onVerify={handleVerify}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
       />
 
       <NotificationsModal

@@ -1,90 +1,102 @@
 import React, { useState } from 'react';
-import { OWNER_EMAIL } from '../types';
-import { Mail, KeyRound, CheckCircle2, ArrowRight, X, Sparkles, Copy, AlertCircle } from 'lucide-react';
+import { Mail, KeyRound, User, Lock, Eye, EyeOff, AlertCircle, X, ShieldCheck, UserPlus, LogIn } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSendOtp: (email: string) => string;
-  onVerify: (email: string, code: string, name?: string) => { success: boolean; error?: string };
+  onLogin: (email: string, code: string) => { success: boolean; error?: string };
+  onRegister: (email: string, code: string, name: string) => { success: boolean; error?: string };
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
-  onSendOtp,
-  onVerify,
+  onLogin,
+  onRegister,
 }) => {
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [activeOtp, setActiveOtp] = useState<string>('');
+  const [confirmCode, setConfirmCode] = useState('');
+  const [name, setName] = useState('');
+  const [showCode, setShowCode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [resendTimer, setResendTimer] = useState(0);
 
   if (!isOpen) return null;
 
-  const handleSendCode = (targetEmail?: string) => {
-    const emailToUse = (targetEmail || email).trim().toLowerCase();
-    if (!emailToUse || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToUse)) {
+  const resetForm = () => {
+    setEmail('');
+    setCode('');
+    setConfirmCode('');
+    setName('');
+    setErrorMsg('');
+    setShowCode(false);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setErrorMsg('الرجاء إدخال بريد إلكتروني صحيح.');
       return;
     }
-
-    setErrorMsg('');
-    const generatedCode = onSendOtp(emailToUse);
-    setActiveOtp(generatedCode);
-    if (targetEmail) {
-      setEmail(targetEmail);
-    }
-    setStep('code');
-    setResendTimer(30);
-
-    const interval = setInterval(() => {
-      setResendTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) {
-      setErrorMsg('الرجاء كتابة رمز التحقق.');
+    if (!cleanCode) {
+      setErrorMsg('الرجاء إدخال رمز الحساب.');
       return;
     }
 
-    const res = onVerify(email, code.trim(), name.trim());
+    const res = onLogin(cleanEmail, cleanCode);
     if (res.success) {
-      onClose();
-      // Reset form
-      setStep('email');
-      setEmail('');
-      setName('');
-      setCode('');
-      setErrorMsg('');
+      handleClose();
     } else {
-      setErrorMsg(res.error || 'رمز التحقق غير صحيح.');
+      setErrorMsg(res.error || 'فشل تسجيل الدخول، يرجى التحقق من صحة البيانات.');
     }
   };
 
-  const handleUseOwnerQuickLogin = () => {
-    setEmail(OWNER_EMAIL);
-    setName('نادية الرويلي');
-    handleSendCode(OWNER_EMAIL);
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+    const cleanName = name.trim();
+
+    if (!cleanName) {
+      setErrorMsg('الرجاء إدخال الاسم الكامل.');
+      return;
+    }
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setErrorMsg('الرجاء إدخال بريد إلكتروني صحيح.');
+      return;
+    }
+    if (!cleanCode || cleanCode.length < 4) {
+      setErrorMsg('يجب أن يتكون رمز الحساب من 4 خانات على الأقل.');
+      return;
+    }
+    if (cleanCode !== confirmCode.trim()) {
+      setErrorMsg('رمزا الحساب غير متطابقين، يرجى التأكد وإعادة المحاولة.');
+      return;
+    }
+
+    const res = onRegister(cleanEmail, cleanCode, cleanName);
+    if (res.success) {
+      handleClose();
+    } else {
+      setErrorMsg(res.error || 'تعذر إنشاء الحساب، يرجى المحاولة لاحقاً.');
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/55 backdrop-blur-xs transition-opacity"
-        onClick={onClose}
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+        onClick={handleClose}
       />
 
       {/* Modal Dialog */}
@@ -93,38 +105,70 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         role="dialog"
         aria-modal="true"
       >
+        {/* Header */}
         <div className="flex items-start justify-between">
-          <div>
+          <div className="min-w-0">
             <h3 className="text-lg font-bold font-display text-[var(--fg)] m-0 flex items-center gap-2">
-              <Mail className="w-5 h-5 text-[var(--accent)]" />
-              {step === 'email' ? 'تسجيل الدخول / إنشاء حساب' : 'تأكيد رمز التحقق'}
+              <KeyRound className="w-5 h-5 text-[var(--accent)] flex-shrink-0" />
+              {mode === 'login' ? 'تسجيل الدخول للمنصة' : 'إنشاء حساب جديد'}
             </h3>
             <p className="text-xs text-[var(--muted)] m-0 mt-0.5">
-              {step === 'email'
-                ? 'أدخل بريدك الإلكتروني لتصلك رسالة تحقق برمز الدخول'
-                : `تم إرسال رمز التحقق إلى: ${email}`}
+              {mode === 'login'
+                ? 'أدخل بريدك الإلكتروني ورمز حسابك السري للدخول'
+                : 'أنشئ حسابك وحدد رمز الدخول الخاص بك (يُمنع تكرار الحسابات)'}
             </p>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-full text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--line)]/50 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* STEP 1: Enter Email */}
-        {step === 'email' && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendCode();
+        {/* Mode Switch Tabs */}
+        <div className="grid grid-cols-2 p-1 rounded-2xl bg-[var(--bg)] border border-[var(--line)] text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('login');
+              setErrorMsg('');
             }}
-            className="grid gap-3.5"
+            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              mode === 'login'
+                ? 'bg-[var(--surface)] text-[var(--fg)] shadow-xs font-bold'
+                : 'text-[var(--muted)] hover:text-[var(--fg)]'
+            }`}
           >
+            <LogIn className="w-3.5 h-3.5" />
+            تسجيل الدخول
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('register');
+              setErrorMsg('');
+            }}
+            className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              mode === 'register'
+                ? 'bg-[var(--surface)] text-[var(--fg)] shadow-xs font-bold'
+                : 'text-[var(--muted)] hover:text-[var(--fg)]'
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            إنشاء حساب جديد
+          </button>
+        </div>
+
+        {/* LOGIN FORM */}
+        {mode === 'login' && (
+          <form onSubmit={handleLoginSubmit} className="grid gap-3.5">
             <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
-              البريد الإلكتروني
+              <span className="flex items-center gap-1">
+                <Mail className="w-3.5 h-3.5" />
+                البريد الإلكتروني
+              </span>
               <input
                 type="email"
                 dir="ltr"
@@ -138,139 +182,184 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </label>
 
             <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
-              الاسم الكامل (اختياري - للشهادات والملف الشخصي)
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="مثال: نادية عبد الله"
-                className="px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-              />
-            </label>
-
-            {/* Quick Owner Login Shortcut */}
-            <div className="p-3 rounded-xl bg-[var(--accent-soft)]/50 border border-[var(--line)] flex items-center justify-between gap-2">
-              <div className="min-w-0 text-xs">
-                <span className="font-bold flex items-center gap-1 text-[var(--accent)]">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  حساب مالك الموقع
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5" />
+                  رمز الحساب السري
                 </span>
-                <span className="text-[11px] text-[var(--muted)] truncate block" dir="ltr">
-                  {OWNER_EMAIL}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowCode(!showCode)}
+                  className="text-[11px] text-[var(--accent)] hover:underline flex items-center gap-1 font-normal"
+                >
+                  {showCode ? (
+                    <>
+                      <EyeOff className="w-3 h-3" />
+                      إخفاء الرمز
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3 h-3" />
+                      إظهار الرمز
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleUseOwnerQuickLogin}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-xs flex-shrink-0"
-                style={{ backgroundColor: 'var(--accent)' }}
-              >
-                دخول كمالك
-              </button>
-            </div>
-
-            {errorMsg && (
-              <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold m-0 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {errorMsg}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs transition-opacity hover:opacity-95 mt-1"
-              style={{ backgroundColor: 'var(--accent)' }}
-            >
-              إرسال رمز التحقق
-            </button>
-          </form>
-        )}
-
-        {/* STEP 2: Enter Verification Code */}
-        {step === 'code' && (
-          <form onSubmit={handleVerify} className="grid gap-3.5">
-            {/* Simulated Inbox Delivery Notification Banner */}
-            {activeOtp && (
-              <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 grid gap-2 animate-slide-up">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    وصلتك رسالة تحقق جديدة
-                  </span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400">الآن</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-white dark:bg-black/40 border border-emerald-100 dark:border-emerald-900 flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] text-[var(--muted)] block">رمز التحقق الخاص بك هو:</span>
-                    <span className="text-xl font-bold font-mono tracking-widest text-[var(--fg)]">
-                      {activeOtp}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCode(activeOtp)}
-                    className="px-2.5 py-1 rounded-lg text-xs font-bold border border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 flex items-center gap-1"
-                  >
-                    <Copy className="w-3 h-3" />
-                    استخدام الرمز
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
-              أدخل الرمز المكون من 6 أرقام
               <input
-                type="text"
+                type={showCode ? 'text' : 'password'}
                 dir="ltr"
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="123456"
-                maxLength={6}
-                className="px-3.5 py-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-center text-xl font-mono tracking-widest text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                autoFocus
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="أدخل رمز حسابك السري"
+                className="px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm text-[var(--fg)] tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--accent)] font-mono"
                 required
               />
             </label>
 
             {errorMsg && (
-              <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold m-0 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {errorMsg}
-              </p>
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 font-semibold flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
             )}
 
-            <div className="grid gap-2 pt-1">
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs transition-opacity hover:opacity-95 mt-1 cursor-pointer flex items-center justify-center gap-2"
+              style={{ backgroundColor: 'var(--accent)' }}
+            >
+              <LogIn className="w-4 h-4" />
+              دخول إلى حسابي
+            </button>
+
+            <div className="text-center text-xs text-[var(--muted)] pt-1">
+              ليس لديك حساب بعد؟{' '}
               <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs transition-opacity hover:opacity-95"
-                style={{ backgroundColor: 'var(--accent)' }}
+                type="button"
+                onClick={() => {
+                  setMode('register');
+                  setErrorMsg('');
+                }}
+                className="font-bold text-[var(--accent)] hover:underline"
               >
-                تأكيد الدخول
+                إنشاء حساب جديد الآن
               </button>
+            </div>
+          </form>
+        )}
 
-              <div className="flex items-center justify-between text-xs text-[var(--muted)] pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('email');
-                    setErrorMsg('');
-                  }}
-                  className="hover:text-[var(--fg)] flex items-center gap-1"
-                >
-                  <ArrowRight className="w-3.5 h-3.5" />
-                  تعديل البريد الإلكتروني
-                </button>
+        {/* REGISTER FORM */}
+        {mode === 'register' && (
+          <form onSubmit={handleRegisterSubmit} className="grid gap-3.5">
+            <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+              <span className="flex items-center gap-1">
+                <User className="w-3.5 h-3.5" />
+                الاسم الكامل (لإصدار الشهادات الرسمية)
+              </span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="الاسم الثلاثي أو الرباعي"
+                className="px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                required
+                autoFocus
+              />
+            </label>
 
-                <button
-                  type="button"
-                  disabled={resendTimer > 0}
-                  onClick={() => handleSendCode()}
-                  className="font-semibold text-[var(--accent)] disabled:opacity-50 disabled:cursor-not-allowed hover:underline"
-                >
-                  {resendTimer > 0 ? `إعادة الإرسال بعد (${resendTimer} ثانية)` : 'إعادة إرسال الرمز'}
-                </button>
+            <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+              <span className="flex items-center gap-1">
+                <Mail className="w-3.5 h-3.5" />
+                البريد الإلكتروني
+              </span>
+              <input
+                type="email"
+                dir="ltr"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm text-[var(--fg)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                required
+              />
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5" />
+                  إنشاء رمز الحساب
+                </span>
+                <input
+                  type={showCode ? 'text' : 'password'}
+                  dir="ltr"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="4 خانات على الأقل"
+                  className="px-3 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm text-[var(--fg)] tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--accent)] font-mono"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                <span className="flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5" />
+                  تأكيد رمز الحساب
+                </span>
+                <input
+                  type={showCode ? 'text' : 'password'}
+                  dir="ltr"
+                  value={confirmCode}
+                  onChange={(e) => setConfirmCode(e.target.value)}
+                  placeholder="أعد كتابة الرمز"
+                  className="px-3 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-sm text-[var(--fg)] tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--accent)] font-mono"
+                  required
+                />
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <button
+                type="button"
+                onClick={() => setShowCode(!showCode)}
+                className="text-[11px] text-[var(--muted)] hover:text-[var(--fg)] flex items-center gap-1"
+              >
+                {showCode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {showCode ? 'إخفاء الرموز' : 'إظهار الرموز'}
+              </button>
+              <span className="text-[10px] text-[var(--muted)] flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                محمي من التكرار بحسابات متعددة
+              </span>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 font-semibold flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
               </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs transition-opacity hover:opacity-95 mt-1 cursor-pointer flex items-center justify-center gap-2"
+              style={{ backgroundColor: 'var(--accent)' }}
+            >
+              <UserPlus className="w-4 h-4" />
+              إنشاء الحساب والتسجيل
+            </button>
+
+            <div className="text-center text-xs text-[var(--muted)] pt-1">
+              لديك حساب بالفعل؟{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  setErrorMsg('');
+                }}
+                className="font-bold text-[var(--accent)] hover:underline"
+              >
+                تسجيل الدخول برمزك
+              </button>
             </div>
           </form>
         )}
