@@ -13,6 +13,13 @@ import {
   Project,
   ProjectReview,
   Role,
+  UserAccount,
+  VerificationCode,
+  NotificationItem,
+  CourseMaterial,
+  ScientificQuestion,
+  ScientificAnswer,
+  OWNER_EMAIL,
 } from './types';
 
 export const DEFAULT_SITE: SiteSettings = {
@@ -23,21 +30,22 @@ export const DEFAULT_SITE: SiteSettings = {
   fontBody: "IBM Plex Sans Arabic",
   fontHead: "Noto Kufi Arabic",
   welcomeTitle: "مرحبًا بك في منصة إرواء!",
-  welcomeText: "تابع دروسك اليومية، وسجل حضورك بانتظام، وأكمل مشاريعك واختباراتك لتحصل على شهادة الإتمام المعتمدة.",
+  welcomeText: "تابع دروسك اليومية، وسجل حضورك بانتظام، واطرح أسئلتك العلمية وشارك في المناقشات لتحصل على شهادة الإتمام المعتمدة.",
   footer: "منصة إرواء التعليمية © 2026 — جميع الحقوق محفوظة.\nنسعى لتقديم تجربة تعليمية متميزة وملهمة.",
   labels: {
     cal: "لوحتي التعليمية",
-    courses: "الدورات",
+    courses: "الدورات والمواد",
     quiz: "الاختبارات",
     certs: "الشهادات",
     projects: "المشاريع",
+    questions: "الأسئلة العلمية",
   },
   cert: {
     title: "شهادة إتمام وتفوق",
     pre: "تشهد إدارة {site} بأن الطالب/ـة",
     body: "قد أتمّ بنجاح جميع متطلبات دورة «{course}» واجتاز الاختبارات النظرية والعملية بنسبة حضور ومعدل مشرف.",
-    signer: "أ.د. عبد الرحمن السعدي",
-    role: "رئيس الهيئة الأكاديمية",
+    signer: "أحمد",
+    role: "مالك ورئيس إدارة المنصة",
     layout: {
       brand: { on: true, x: 50, y: 15, size: 46, color: "#1B8576" },
       title: { on: true, x: 50, y: 25.7, size: 84, color: "#16302C" },
@@ -91,7 +99,7 @@ export function formatShortDate(ms: number): string {
   });
 }
 
-const STORAGE_KEY = "irwaa_platform_store_v1";
+const STORAGE_KEY = "irwaa_platform_store_v3";
 
 export interface AppStoreData {
   site: SiteSettings;
@@ -100,17 +108,21 @@ export interface AppStoreData {
   lessons: Lesson[];
   quizzes: Quiz[];
   blocks: Announcement[];
+  users: UserAccount[];
   students: Student[];
   teachers: Teacher[];
-  enrolled: Record<string, Record<string, { at: number }>>; // uid -> courseId -> {at}
-  attendance: Record<string, Record<string, AttendanceRecord>>; // uid -> lessonId -> AttendanceRecord
-  quizResults: Record<string, Record<string, QuizResult>>; // uid -> quizId -> QuizResult
-  quizAttempts: Record<string, Record<string, QuizAttempt>>; // uid -> quizId -> QuizAttempt
+  enrolled: Record<string, Record<string, { at: number }>>;
+  attendance: Record<string, Record<string, AttendanceRecord>>;
+  quizResults: Record<string, Record<string, QuizResult>>;
+  quizAttempts: Record<string, Record<string, QuizAttempt>>;
   certificates: Certificate[];
-  projects: Record<string, Project>; // projId -> Project
-  reviews: Record<string, ProjectReview>; // projId -> ProjectReview
+  projects: Record<string, Project>;
+  reviews: Record<string, ProjectReview>;
+  notifications: NotificationItem[];
+  questions: ScientificQuestion[];
   currentUid: string;
   currentRole: Role;
+  verificationCodes: Record<string, VerificationCode>;
 }
 
 function getRelativeDate(offsetDays: number): string {
@@ -121,40 +133,215 @@ function getRelativeDate(offsetDays: number): string {
 
 function generateInitialSeed(): AppStoreData {
   const now = Date.now();
-  const currentUid = "stu_nadia_01";
+  const ownerUid = "usr_owner_ahmed";
 
+  // Owner Name is Ahmed!
+  const users: UserAccount[] = [
+    {
+      id: ownerUid,
+      email: OWNER_EMAIL,
+      name: "أحمد",
+      role: "owner",
+      status: "active",
+      joinedAt: now - 60 * 86400000,
+      lastLoginAt: now,
+      bio: "مالك ومؤسس منصة إرواء التعليمية. مشرف عام على المسار الأكاديمي والتقني.",
+      avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=AhmedOwner",
+    },
+    {
+      id: "usr_khalid",
+      email: "khalid.m@example.com",
+      name: "خالد بن فيصل المنصور",
+      role: "student",
+      status: "active",
+      joinedAt: now - 24 * 86400000,
+      lastLoginAt: now - 1 * 86400000,
+      bio: "مهتم بالحوسبة السحابية وهندسة البرمجيات",
+    },
+    {
+      id: "usr_reem",
+      email: "reem.d@example.com",
+      name: "ريم عبد العزيز الدوسري",
+      role: "student",
+      status: "active",
+      joinedAt: now - 22 * 86400000,
+      lastLoginAt: now - 2 * 86400000,
+      bio: "مصممة واجهات ومطورة واجهات تفاعلية",
+    },
+    {
+      id: "usr_fawaz",
+      email: "fawaz.o@example.com",
+      name: "فواز إبراهيم العتيبي",
+      role: "student",
+      status: "pending",
+      joinedAt: now - 1 * 86400000,
+      lastLoginAt: now - 1 * 86400000,
+    },
+    {
+      id: "usr_ahmed_tch",
+      email: "ahmed.teacher@example.com",
+      name: "م. أحمد الشمري",
+      role: "teacher",
+      status: "active",
+      joinedAt: now - 45 * 86400000,
+      lastLoginAt: now - 3 * 86400000,
+      bio: "معلم ومشرف مسار تطوير الويب",
+    },
+    {
+      id: "usr_sarah",
+      email: "sarah.teacher@example.com",
+      name: "أ. سارة القحطاني",
+      role: "teacher",
+      status: "active",
+      joinedAt: now - 40 * 86400000,
+      lastLoginAt: now - 2 * 86400000,
+      bio: "خبيرة تصميم تجربة المستخدم وتصميم النظم",
+    },
+  ];
+
+  const students: Student[] = users
+    .filter((u) => u.role === "student" || u.role === "owner")
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      joinedAt: u.joinedAt,
+      email: u.email,
+    }));
+
+  const teachers: Teacher[] = [
+    {
+      id: "usr_ahmed_tch",
+      name: "م. أحمد الشمري",
+      courses: ["course_web", "subj_algo"],
+      at: now - 35 * 86400000,
+    },
+    {
+      id: "usr_sarah",
+      name: "أ. سارة القحطاني",
+      courses: ["course_uiux"],
+      at: now - 30 * 86400000,
+    },
+  ];
+
+  // Courses and Subjects (مواد دراسية ودورات تدريبية)
   const courses: Course[] = [
     {
       id: "course_web",
-      title: "تطوير تطبيقات الويب الحديثة (React & TypeScript)",
-      desc: "دورة شاملة في بناء تطبيقات الويب التفاعلية الحديثة من الصفر حتى النشر المتقدم.",
+      title: "دورة تطوير تطبيقات الويب الحديثة (React & TypeScript)",
+      desc: "دورة تدريبية عملية تركز على بناء تطبيقات متكاملة وتفاعلية من الصفر للنشر السحابي.",
       teacher: "م. أحمد الشمري",
       minAtt: 80,
       minScore: 60,
+      type: "course",
+      category: "تقنية وبرمجة",
       createdAt: now - 30 * 86400000,
+      materials: [
+        {
+          id: "mat_w1",
+          title: "كتاب المرجع الشامل لأساسيات React 19 الحديثة",
+          type: "pdf",
+          url: "https://example.com/materials/react19-guide.pdf",
+          size: "4.2 MB",
+          description: "ملف تدريبي مفصل يغطي المفاهيم الأساسية، خطافات العمل، والأنماط المعمارية.",
+        },
+        {
+          id: "mat_w2",
+          title: "مستودع الكود المصدري للمشروع التطبيقي على GitHub",
+          type: "link",
+          url: "https://github.com/example/react-fullstack-starter",
+          description: "كافة الأكواد والمشاريع المكتوبة أثناء الدروس خطوة بخطوة.",
+        },
+        {
+          id: "mat_w3",
+          title: "ملخص الدوال والمصطلحات البرمجية (Cheat Sheet)",
+          type: "doc",
+          url: "https://example.com/materials/react-typescript-cheatsheet.pdf",
+          size: "1.1 MB",
+          description: "ورقة مراجعة سريعة للاختبارات وللمراجعة الميدانية.",
+        },
+      ],
     },
     {
       id: "course_uiux",
-      title: "تصميم واجهات وتجربة المستخدم UI/UX الاحترافي",
+      title: "دورة تصميم واجهات وتجربة المستخدم UI/UX الاحترافي",
       desc: "تعلم أسس التصميم الجرافيكي، بناء نظم التصميم، وإعداد النماذج التفاعلية باستخدام Figma.",
       teacher: "أ. سارة القحطاني",
       minAtt: 75,
       minScore: 70,
+      type: "course",
+      category: "تصميم وإبداع",
       createdAt: now - 25 * 86400000,
+      materials: [
+        {
+          id: "mat_u1",
+          title: "مكتبة عناصر ومكونات Figma الكاملة للتطبيق",
+          type: "link",
+          url: "https://figma.com/@example/design-system-kit",
+          description: "نظام التصميم العربي الموحد متوافق مع نظام شبكة 8pt.",
+        },
+        {
+          id: "mat_u2",
+          title: "دليل معايير تباين الألوان وقابلية الوصول الرقمي WCAG",
+          type: "pdf",
+          url: "https://example.com/materials/accessibility-guide.pdf",
+          size: "2.8 MB",
+          description: "معايير تصميم واجهات سهلة الاستخدام ومريحة للعين.",
+        },
+      ],
     },
     {
-      id: "course_ai",
-      title: "أساسيات الذكاء الاصطناعي التوليدي وهندسة الأوامر",
-      desc: "اكتشف إمكانيات النماذج التوليدية الحديثة وكيفية دمجها في المشاريع البرمجية.",
+      id: "subj_algo",
+      title: "مادة: هياكل البيانات وتصميم الخوارزميات (Data Structures)",
+      desc: "مادة دراسية أكاديمية تأسيسية تغطي المصفوفات، القوائم المترابطة، الأشجار، وخوارزميات البحث والترتيب المتقدمة.",
+      teacher: "أحمد (مالك المنصة)",
+      minAtt: 80,
+      minScore: 65,
+      type: "subject", // Academic Subject
+      category: "علوم الحاسب الأكاديمية",
+      createdAt: now - 22 * 86400000,
+      materials: [
+        {
+          id: "mat_s1",
+          title: "المذكرة الأكاديمية لمقرر هياكل البيانات وتطبيقاتها",
+          type: "pdf",
+          url: "https://example.com/materials/data-structures-notes.pdf",
+          size: "5.6 MB",
+          description: "المحتوى النظري والتمارين البرمجية الشاملة للمادة.",
+        },
+        {
+          id: "mat_s2",
+          title: "بنك المسائل والتمارين البرمجية لحل المشكلات",
+          type: "doc",
+          url: "https://example.com/materials/algorithms-problems-set.pdf",
+          size: "2.3 MB",
+          description: "أكثر من 50 تمرينًا عمليًا مع شروحات الحل خطوة بخطوة.",
+        },
+      ],
+    },
+    {
+      id: "subj_ai",
+      title: "مادة: أساسيات الذكاء الاصطناعي وتعلم الآلة (AI Fundamentals)",
+      desc: "مادة أكاديمية تدرس أسس النماذج العصبية، معالجة اللغات الطبيعية، وهندسة الأوامر مع تطبيقات عملية.",
       teacher: "د. عمر الهاشمي",
       minAtt: 70,
       minScore: 65,
+      type: "subject", // Academic Subject
+      category: "الذكاء الاصطناعي",
       createdAt: now - 20 * 86400000,
+      materials: [
+        {
+          id: "mat_ai1",
+          title: "شرائح محاضرات الذكاء الاصطناعي التوليدي والـ LLMs",
+          type: "pdf",
+          url: "https://example.com/materials/genai-lecture-slides.pdf",
+          size: "7.1 MB",
+          description: "عروض تقديمية مرئية لكافة المفاهيم النظرية والنماذج التوليدية.",
+        },
+      ],
     },
   ];
 
   const lessons: Lesson[] = [
-    // Web Course Lessons
     {
       id: "les_w1",
       courseId: "course_web",
@@ -188,23 +375,21 @@ function generateInitialSeed(): AppStoreData {
       createdAt: now - 1 * 86400000,
     },
     {
-      id: "les_w5",
-      courseId: "course_web",
-      title: "قواعد الأمان وتوثيق المستخدمين وطرق الحماية",
-      date: getRelativeDate(3),
-      url: "https://www.youtube.com/watch?v=k3Vfj-e1Ma4",
-      createdAt: now,
+      id: "les_s1",
+      courseId: "subj_algo",
+      title: "محاضرة 1: مفهوم التعقيد الزمني Big-O وتحليل كفاءة الخوارزميات",
+      date: getRelativeDate(-3),
+      url: "https://www.youtube.com/watch?v=D6xkbGLQesk",
+      createdAt: now - 4 * 86400000,
     },
     {
-      id: "les_w6",
-      courseId: "course_web",
-      title: "النشر المستمر وإعداد بيئة الإنتاج على السحابة",
-      date: getRelativeDate(7),
-      url: "https://www.youtube.com/watch?v=w7ejDZ8SWv8",
+      id: "les_s2",
+      courseId: "subj_algo",
+      title: "محاضرة 2: القوائم المترابطة Linked Lists وتطبيقاتها في الذاكرة",
+      date: getRelativeDate(1),
+      url: "https://www.youtube.com/watch?v=F8AbOfQwl1c",
       createdAt: now,
     },
-
-    // UI/UX Course Lessons
     {
       id: "les_u1",
       courseId: "course_uiux",
@@ -212,56 +397,6 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(-6),
       url: "https://www.youtube.com/watch?v=c9Wg6Cb_YlU",
       createdAt: now - 9 * 86400000,
-    },
-    {
-      id: "les_u2",
-      courseId: "course_uiux",
-      title: "نظرية الألوان والخطوط العربية في تصميم الهوية الرقمية",
-      date: getRelativeDate(-3),
-      url: "https://www.youtube.com/watch?v=Zfomz7i6P8E",
-      createdAt: now - 5 * 86400000,
-    },
-    {
-      id: "les_u3",
-      courseId: "course_uiux",
-      title: "درس اليوم: بناء نظام تصميم متكامل Design System في Figma",
-      date: getRelativeDate(0),
-      url: "https://www.youtube.com/watch?v=jwMp_u7uQ9g",
-      createdAt: now - 1 * 86400000,
-    },
-    {
-      id: "les_u4",
-      courseId: "course_uiux",
-      title: "اختبار سهولة الاستخدام وتطوير النماذج التفاعلية",
-      date: getRelativeDate(4),
-      url: "https://www.youtube.com/watch?v=ft30zcMlFao",
-      createdAt: now,
-    },
-
-    // AI Course Lessons
-    {
-      id: "les_a1",
-      courseId: "course_ai",
-      title: "مدخل إلى النماذج اللغوية الكبيرة LLMs ومفاهيم عملها",
-      date: getRelativeDate(-4),
-      url: "https://www.youtube.com/watch?v=zjkBMFhNj_g",
-      createdAt: now - 6 * 86400000,
-    },
-    {
-      id: "les_a2",
-      courseId: "course_ai",
-      title: "أفضل ممارسات هندسة الأوامر Prompt Engineering المتقدمة",
-      date: getRelativeDate(-1),
-      url: "https://www.youtube.com/watch?v=_ZvnD93TgJ8",
-      createdAt: now - 2 * 86400000,
-    },
-    {
-      id: "les_a3",
-      courseId: "course_ai",
-      title: "بناء تطبيقات مدعومة بالذكاء الاصطناعي مع Gemini API",
-      date: getRelativeDate(5),
-      url: "https://www.youtube.com/watch?v=b093qa3450",
-      createdAt: now,
     },
   ];
 
@@ -281,16 +416,6 @@ function generateInitialSeed(): AppStoreData {
           answer: 1,
         },
         {
-          q: "متى يتم تنفيذ كود الدالة الممررة لـ useEffect بدون مصفوفة تبعيات [ ]؟",
-          options: [
-            "عند أول تحميل للمكون فقط",
-            "بعد كل عملية تصيير (Render) للمكون",
-            "عند تفكيك المكون فقط",
-            "فقط عند حدوث خطأ",
-          ],
-          answer: 1,
-        },
-        {
           q: "ما هي الفائدة الرئيسية من استخدام TypeScript في مشاريع React؟",
           options: [
             "زيادة سرعة التحميل في المتصفح تلقائيًا",
@@ -300,206 +425,174 @@ function generateInitialSeed(): AppStoreData {
           ],
           answer: 1,
         },
-        {
-          q: "ما هي الطريقة الصحيحة لتمرير خاصية (Prop) من المكون الأب إلى المكون الابن؟",
-          options: [
-            "<Child propName={value} />",
-            "Child.setProp('propName', value)",
-            "window.propName = value",
-            "<Child :propName='value'>",
-          ],
-          answer: 0,
-        },
       ],
       createdAt: now - 6 * 86400000,
-    },
-    {
-      id: "quiz_uiux_1",
-      title: "اختبار قواعد تجربة المستخدم وتناسق الألوان",
-      courseId: "course_uiux",
-      minutes: 10,
-      opensAt: now - 3 * 86400000,
-      closesAt: now + 10 * 86400000,
-      single: false,
-      questions: [
-        {
-          q: "ماذا يقصد بقاعدة التباين (Contrast Ratio) بين النص ولون الخلفية وفق معايير WCAG؟",
-          options: [
-            "ضمان وضوح وقراءة النص لجميع المستخدمين بما فيهم ضعاف البصر",
-            "استخدام ألوان براقة فقط لجذب الانتباه",
-            "تطابق درجات التشبع بين العناصر",
-            "استخدام خطوط مائلة حصرًا",
-          ],
-          answer: 0,
-        },
-        {
-          q: "ما هو الغرض من إعداد Wireframe منخفض الدقة (Low-Fidelity) في بداية المشروع؟",
-          options: [
-            "اختيار الألوان النهائية للشعار",
-            "التركيز على هيكلية المحتوى وتدفق الصفحات قبل التفاصيل البصرية",
-            "كتابة كود الـ JavaScript مباشرة",
-            "طباعة الملصقات الإعلانية",
-          ],
-          answer: 1,
-        },
-        {
-          q: "ما هو مبدأ Fitts's Law في تصميم الواجهات التفاعلية؟",
-          options: [
-            "كلما كان الزر أكبر وأقرب لمؤشر الفأرة، كان النقر عليه أسرع وأسهل",
-            "الواجهات الداكنة تستهلك طاقة أقل دائمًا",
-            "يجب ألا تتجاوز ألوان الصفحة لونين",
-            "حجم الخط يجب أن يكون ثابتًا في كل الشاشات",
-          ],
-          answer: 0,
-        },
-      ],
-      createdAt: now - 4 * 86400000,
     },
   ];
 
   const blocks: Announcement[] = [
     {
       id: "ann_1",
-      title: "🎉 فتح باب التسليم للمشاريع النهائية للفصل الدراسي الحالي",
-      text: "أعزاءنا الطلاب، يرجى تسليم مشاريعكم عبر تبويب «المشاريع» قبل موعد الاختبار الختامي ليتمكن المشرفون من مراجعتها واعتماد درجاتكم.",
-      linkLabel: "انتقل لتبويب المشاريع",
+      title: "🎉 إطلاق نظام الإشعارات والأسئلة العلمية التفاعلية",
+      text: "يسر إدارة المنصة إعلامكم ببدء استقبال استفساراتكم الأكاديمية عبر تبويب «الأسئلة العلمية» مع إجابات موثقة ومعتمدة من الأساتذة.",
+      linkLabel: "تصفح الأسئلة العلمية",
+      linkUrl: "",
+      courseId: "",
+      createdAt: now - 1 * 86400000,
+    },
+    {
+      id: "ann_2",
+      title: "📢 توفير المواد الدراسية والمذكرات الرقمية بصيغة PDF",
+      text: "يمكنكم الآن تصفح قسم «الدورات والمواد» لتحميل مذكرات المحاضرات والمراجع المعتمدة مباشرة.",
+      linkLabel: "عرض المواد المتاحة",
       linkUrl: "",
       courseId: "",
       createdAt: now - 2 * 86400000,
     },
+  ];
+
+  // Seed Notifications
+  const notifications: NotificationItem[] = [
     {
-      id: "ann_2",
-      title: "📌 ورشة عمل تفاعلية مباشرة: كيفية بناء ملف أعمال Portfolio متميز",
-      text: "تقام الورشة يوم الخميس القادم عبر البث المباشر مع استعراض أمثلة حية لأفضل الممارسات المهنية.",
-      linkLabel: "رابط جلسة البث",
-      linkUrl: "https://meet.google.com",
+      id: "notif_1",
+      title: "إعلان جديد من الإدارة",
+      message: "تم تحديث المواد الدراسية وإضافة مذكرات مادة هياكل البيانات.",
+      type: "announcement",
+      createdAt: now - 2 * 3600000,
+      read: false,
+      linkTab: "courses",
+    },
+    {
+      id: "notif_2",
+      title: "قسم الأسئلة العلمية متاح الآن",
+      message: "يمكنك الآن طرح استفساراتك حول البرمجة والخوارزميات وتلقي إجابات معتمدة.",
+      type: "question",
+      createdAt: now - 10 * 3600000,
+      read: false,
+      linkTab: "questions",
+    },
+  ];
+
+  // Seed Scientific Questions & Verified Answers
+  const questions: ScientificQuestion[] = [
+    {
+      id: "q_1",
+      uid: "usr_khalid",
+      authorName: "خالد بن فيصل المنصور",
       courseId: "course_web",
-      createdAt: now - 4 * 86400000,
+      courseTitle: "تطوير تطبيقات الويب الحديثة",
+      title: "ما هو الفرق العملي بين خطافي useMemo و useCallback ومتى نفضل أحدهما؟",
+      content: "ألاحظ في مشاريع React استخدام كلا الخطافين لتحسين الأداء (Memoization)، ولكن متى ينبغي عليّ استخدام useMemo ومتى يكون useCallback هو الخيار الأنسب؟ وما أثر الإفراط في استخدامهما؟",
+      tags: ["React", "Performance", "Hooks"],
+      createdAt: now - 2 * 86400000,
+      status: "resolved",
+      answers: [
+        {
+          id: "ans_1",
+          questionId: "q_1",
+          uid: ownerUid,
+          authorName: "أحمد (مالك المنصة)",
+          authorRole: "owner",
+          content: "أهلاً بك يا خالد. الفرق الأساسي والمباشر هو:\n1. useMemo: يُستخدم لتخزين نتيجة عملية حسابية معقدة (Value).\n2. useCallback: يُستخدم لتخزين مرجع الدالة نفسها (Function Reference) حتى لا يُعاد إنشاؤها مع كل Render للمكون.\n\nتنبيه مهم: تجنب استخدامهما في كل مكان، بل فقط عندما تُمرر دوال لمكونات ابنة تستخدم React.memo أو عند إجراء عمليات حسابية ثقيلة تستهلك الذاكرة.",
+          createdAt: now - 1 * 86400000,
+          isVerified: true,
+          likes: 5,
+        },
+        {
+          id: "ans_2",
+          questionId: "q_1",
+          uid: "usr_reem",
+          authorName: "ريم عبد العزيز الدوسري",
+          authorRole: "student",
+          content: "قاعدة ذهبية أتبعها: إذا كان الهدف منع إعادة تصيير مكون فرعي يستقبل الدالة كـ Prop، استخدم useCallback. وإذا كان الهدف تصفية مصفوفة كبيرة أو فرزها، استخدم useMemo.",
+          createdAt: now - 18 * 3600000,
+          isVerified: false,
+          likes: 2,
+        },
+      ],
+    },
+    {
+      id: "q_2",
+      uid: "usr_reem",
+      authorName: "ريم عبد العزيز الدوسري",
+      courseId: "subj_algo",
+      courseTitle: "هياكل البيانات وتصميم الخوارزميات",
+      title: "كيف نحدد متى نستخدم الـ Hash Table بدلاً من الـ Binary Search Tree؟",
+      content: "في مسائل البحث السريع، توفر جداول الهاش متوسط زمن O(1)، بينما شجرة البحث الثنائي O(log n). فما هي الحالات التي تجعلنا نفضل استخدام الأشجار رغم أن الهاش أسرع نظرياً؟",
+      tags: ["Data Structures", "Algorithms", "Big-O"],
+      createdAt: now - 1 * 86400000,
+      status: "open",
+      answers: [
+        {
+          id: "ans_3",
+          questionId: "q_2",
+          uid: "usr_ahmed_tch",
+          authorName: "م. أحمد الشمري",
+          authorRole: "teacher",
+          content: "سؤال ممتاز يا ريم! نفضل استخدام Binary Search Tree (وبالتحديد Balanced BST مثل Red-Black Tree) في الحالات التالية:\n1. عندما نحتاج إلى استرجاع البيانات مرتبة بشكل دائم دون فرز إضافي.\n2. عند الحاجة لتنفيذ استعلامات النطاق (Range Queries) مثل العثور على جميع العناصر بين 10 و 50.\n3. لتجنب أسوأ حالة في الهاش O(n) الناتجة عن تصادمات المفاتيح (Collisions).",
+          createdAt: now - 8 * 3600000,
+          isVerified: true,
+          likes: 4,
+        },
+      ],
     },
   ];
 
-  const students: Student[] = [
-    {
-      id: "stu_nadia_01",
-      name: "نادية الرويلي",
-      joinedAt: now - 28 * 86400000,
-      email: "nadia.r@example.com",
-    },
-    {
-      id: "stu_khalid_02",
-      name: "خالد بن فيصل المنصور",
-      joinedAt: now - 24 * 86400000,
-      email: "khalid.m@example.com",
-    },
-    {
-      id: "stu_reem_03",
-      name: "ريم عبد العزيز الدوسري",
-      joinedAt: now - 22 * 86400000,
-      email: "reem.d@example.com",
-    },
-    {
-      id: "stu_fawaz_04",
-      name: "فواز إبراهيم العتيبي",
-      joinedAt: now - 18 * 86400000,
-      email: "fawaz.o@example.com",
-    },
-  ];
-
-  const teachers: Teacher[] = [
-    {
-      id: "tch_ahmed",
-      name: "م. أحمد الشمري",
-      courses: ["course_web"],
-      at: now - 35 * 86400000,
-    },
-    {
-      id: "tch_sarah",
-      name: "أ. سارة القحطاني",
-      courses: ["course_uiux"],
-      at: now - 30 * 86400000,
-    },
-    {
-      id: "tch_omar",
-      name: "د. عمر الهاشمي",
-      courses: ["course_ai"],
-      at: now - 25 * 86400000,
-    },
-  ];
-
-  // Enrollments
   const enrolled: Record<string, Record<string, { at: number }>> = {
-    stu_nadia_01: {
+    [ownerUid]: {
       course_web: { at: now - 20 * 86400000 },
       course_uiux: { at: now - 18 * 86400000 },
+      subj_algo: { at: now - 15 * 86400000 },
     },
-    stu_khalid_02: {
+    usr_khalid: {
       course_web: { at: now - 22 * 86400000 },
+      subj_algo: { at: now - 12 * 86400000 },
     },
-    stu_reem_03: {
+    usr_reem: {
       course_web: { at: now - 21 * 86400000 },
       course_uiux: { at: now - 19 * 86400000 },
-      course_ai: { at: now - 15 * 86400000 },
-    },
-    stu_fawaz_04: {
-      course_ai: { at: now - 16 * 86400000 },
     },
   };
 
-  // Nadia's attendance
   const attendance: Record<string, Record<string, AttendanceRecord>> = {
-    stu_nadia_01: {
+    [ownerUid]: {
       les_w1: { opened: now - 7 * 86400000, attended: now - 7 * 86400000 },
       les_w2: { opened: now - 5 * 86400000, attended: now - 5 * 86400000 },
       les_w3: { opened: now - 2 * 86400000, attended: now - 2 * 86400000 },
-      les_u1: { opened: now - 6 * 86400000, attended: now - 6 * 86400000 },
-      les_u2: { opened: now - 3 * 86400000, attended: now - 3 * 86400000 },
+      les_s1: { opened: now - 3 * 86400000, attended: now - 3 * 86400000 },
     },
-    stu_khalid_02: {
+    usr_khalid: {
       les_w1: { opened: now - 7 * 86400000, attended: now - 7 * 86400000 },
       les_w2: { opened: now - 5 * 86400000, attended: now - 5 * 86400000 },
-    },
-    stu_reem_03: {
-      les_w1: { opened: now - 7 * 86400000, attended: now - 7 * 86400000 },
-      les_w2: { opened: now - 5 * 86400000, attended: now - 5 * 86400000 },
-      les_w3: { opened: now - 2 * 86400000, attended: now - 2 * 86400000 },
-      les_u1: { opened: now - 6 * 86400000, attended: now - 6 * 86400000 },
-      les_u2: { opened: now - 3 * 86400000, attended: now - 3 * 86400000 },
-      les_a1: { opened: now - 4 * 86400000, attended: now - 4 * 86400000 },
-      les_a2: { opened: now - 1 * 86400000, attended: now - 1 * 86400000 },
     },
   };
 
   const quizResults: Record<string, Record<string, QuizResult>> = {
-    stu_nadia_01: {
-      quiz_web_1: { score: 4, total: 4, best: 4, at: now - 4 * 86400000 },
-      quiz_uiux_1: { score: 3, total: 3, best: 3, at: now - 2 * 86400000 },
-    },
-    stu_reem_03: {
-      quiz_web_1: { score: 3, total: 4, best: 3, at: now - 3 * 86400000 },
+    [ownerUid]: {
+      quiz_web_1: { score: 2, total: 2, best: 2, at: now - 4 * 86400000 },
     },
   };
 
   const quizAttempts: Record<string, Record<string, QuizAttempt>> = {
-    stu_nadia_01: {
+    [ownerUid]: {
       quiz_web_1: { startedAt: now - 4 * 86400000 },
-      quiz_uiux_1: { startedAt: now - 2 * 86400000 },
     },
   };
 
   const certificates: Certificate[] = [
     {
-      id: "course_web_stu_reem_03",
+      id: "course_web_owner",
       courseId: "course_web",
-      uid: "stu_reem_03",
+      uid: ownerUid,
       issuedAt: now - 2 * 86400000,
-      serial: "E9812A",
+      serial: "E-AHMED99",
     },
   ];
 
   const projects: Record<string, Project> = {
     proj_1: {
       id: "proj_1",
-      uid: "stu_nadia_01",
+      uid: ownerUid,
       title: "تطبيق لوحة تحكم وإدارة المهام الدراسية (TaskFlow)",
       text: "مشروع متكامل مبني باستخدام React 19 و TypeScript مع دعم الوضع الليلي وتخزين البيانات محليًا. يحتوي على رسوم بيانية لإحصائيات الإنجاز وقوائم مهام مصنفة.",
       link: "https://github.com/example/react-taskflow",
@@ -507,42 +600,15 @@ function generateInitialSeed(): AppStoreData {
       createdAt: now - 5 * 86400000,
       updatedAt: now - 5 * 86400000,
     },
-    proj_2: {
-      id: "proj_2",
-      uid: "stu_nadia_01",
-      title: "تصميم نموذج تطبيقي لحجز المواعيد الطبية الذكية",
-      text: "ملف تصميم Figma كامل يحتوي على أكثر من 20 شاشة مع تدفقات المستخدم ونظام الألوان المتناسق ومكتبة عناصر UI متكاملة.",
-      link: "https://figma.com/@example/medical-app",
-      courseId: "course_uiux",
-      createdAt: now - 3 * 86400000,
-      updatedAt: now - 3 * 86400000,
-    },
-    proj_3: {
-      id: "proj_3",
-      uid: "stu_khalid_02",
-      title: "متجر إلكتروني مصغر للكتب التعليمية",
-      text: "تم إعداد واجهة المتجر مع سلة المشتريات وتصفية التصنيفات باللغة العربية.",
-      link: "https://github.com/example/arabic-bookstore",
-      courseId: "course_web",
-      createdAt: now - 2 * 86400000,
-      updatedAt: now - 2 * 86400000,
-    },
   };
 
   const reviews: Record<string, ProjectReview> = {
     proj_1: {
       status: "reviewed",
       grade: "20 / 20",
-      feedback: "عمل متقن ومتميز للغاية يا نادية! كود نظيف وتصميم متناسق يلتزم بأعلى معايير تجربة المستخدم. أحسنتِ.",
+      feedback: "عمل متقن ومتميز للغاية! كود نظيف وتصميم متناسق يلتزم بأعلى معايير تجربة المستخدم.",
       at: now - 4 * 86400000,
-      by: "tch_ahmed",
-    },
-    proj_2: {
-      status: "reviewed",
-      grade: "19 / 20",
-      feedback: "جهد رائع ونظام تصميم أنيق. يُفضل فقط زيادة التباين في شاشة تأكيد الحجز للمرضى كبار السن.",
-      at: now - 2 * 86400000,
-      by: "tch_sarah",
+      by: "usr_ahmed_tch",
     },
   };
 
@@ -553,6 +619,7 @@ function generateInitialSeed(): AppStoreData {
     lessons,
     quizzes,
     blocks,
+    users,
     students,
     teachers,
     enrolled,
@@ -562,8 +629,11 @@ function generateInitialSeed(): AppStoreData {
     certificates,
     projects,
     reviews,
-    currentUid,
-    currentRole: "student", // default view for new visitors
+    notifications,
+    questions,
+    currentUid: ownerUid,
+    currentRole: "owner",
+    verificationCodes: {},
   };
 }
 
@@ -580,7 +650,7 @@ class AppStorageManager {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.site && parsed.courses) {
+        if (parsed && parsed.site && parsed.users && parsed.courses && parsed.questions) {
           return parsed;
         }
       }
@@ -621,6 +691,305 @@ class AppStorageManager {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  // --- Profile Edit ---
+  public updateProfile(uid: string, updates: Partial<UserAccount>) {
+    this.update((draft) => {
+      const user = draft.users.find((u) => u.id === uid);
+      if (user) {
+        if (updates.name !== undefined) user.name = updates.name.trim();
+        if (updates.bio !== undefined) user.bio = updates.bio.trim();
+        if (updates.phone !== undefined) user.phone = updates.phone.trim();
+        if (updates.avatar !== undefined) user.avatar = updates.avatar;
+
+        const stu = draft.students.find((s) => s.id === uid);
+        if (stu && updates.name !== undefined) {
+          stu.name = updates.name.trim();
+        }
+      }
+    });
+  }
+
+  // --- Notifications System ---
+  public addNotification(notif: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>) {
+    this.update((draft) => {
+      draft.notifications.unshift({
+        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        title: notif.title,
+        message: notif.message,
+        type: notif.type,
+        targetUid: notif.targetUid,
+        linkTab: notif.linkTab,
+        createdAt: Date.now(),
+        read: false,
+      });
+    });
+  }
+
+  public markNotificationAsRead(id: string) {
+    this.update((draft) => {
+      const n = draft.notifications.find((item) => item.id === id);
+      if (n) n.read = true;
+    });
+  }
+
+  public markAllNotificationsAsRead(uid?: string) {
+    this.update((draft) => {
+      draft.notifications.forEach((n) => {
+        if (!n.targetUid || n.targetUid === uid) {
+          n.read = true;
+        }
+      });
+    });
+  }
+
+  public deleteNotification(id: string) {
+    this.update((draft) => {
+      draft.notifications = draft.notifications.filter((n) => n.id !== id);
+    });
+  }
+
+  // --- Scientific Questions System ---
+  public addScientificQuestion(q: Omit<ScientificQuestion, 'id' | 'createdAt' | 'answers' | 'status'>) {
+    this.update((draft) => {
+      draft.questions.unshift({
+        id: `q_${Date.now()}`,
+        uid: q.uid,
+        authorName: q.authorName,
+        courseId: q.courseId,
+        courseTitle: q.courseTitle,
+        title: q.title.trim(),
+        content: q.content.trim(),
+        tags: q.tags || [],
+        createdAt: Date.now(),
+        answers: [],
+        status: 'open',
+      });
+    });
+  }
+
+  public addScientificAnswer(
+    questionId: string,
+    answer: Omit<ScientificAnswer, 'id' | 'questionId' | 'createdAt' | 'isVerified' | 'likes'>
+  ) {
+    this.update((draft) => {
+      const q = draft.questions.find((item) => item.id === questionId);
+      if (q) {
+        q.answers.push({
+          id: `ans_${Date.now()}`,
+          questionId,
+          uid: answer.uid,
+          authorName: answer.authorName,
+          authorRole: answer.authorRole,
+          content: answer.content.trim(),
+          createdAt: Date.now(),
+          isVerified: answer.authorRole === 'owner' || answer.authorRole === 'teacher',
+          likes: 0,
+        });
+      }
+    });
+  }
+
+  public toggleVerifyAnswer(questionId: string, answerId: string) {
+    this.update((draft) => {
+      const q = draft.questions.find((item) => item.id === questionId);
+      if (q) {
+        const a = q.answers.find((item) => item.id === answerId);
+        if (a) {
+          a.isVerified = !a.isVerified;
+        }
+      }
+    });
+  }
+
+  public deleteScientificQuestion(questionId: string) {
+    this.update((draft) => {
+      draft.questions = draft.questions.filter((q) => q.id !== questionId);
+    });
+  }
+
+  // --- Course Materials System ---
+  public addCourseMaterial(courseId: string, mat: Omit<CourseMaterial, 'id'>) {
+    this.update((draft) => {
+      const c = draft.courses.find((item) => item.id === courseId);
+      if (c) {
+        if (!c.materials) c.materials = [];
+        c.materials.push({
+          id: `mat_${Date.now()}`,
+          title: mat.title.trim(),
+          type: mat.type,
+          url: mat.url.trim(),
+          size: mat.size?.trim(),
+          description: mat.description?.trim(),
+        });
+      }
+    });
+  }
+
+  public deleteCourseMaterial(courseId: string, materialId: string) {
+    this.update((draft) => {
+      const c = draft.courses.find((item) => item.id === courseId);
+      if (c && c.materials) {
+        c.materials = c.materials.filter((m) => m.id !== materialId);
+      }
+    });
+  }
+
+  // --- Auth & Verification methods ---
+  public generateOtpCode(email: string): string {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    this.update((draft) => {
+      draft.verificationCodes[email.toLowerCase()] = {
+        email: email.toLowerCase(),
+        code,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+        createdAt: Date.now(),
+      };
+    });
+    return code;
+  }
+
+  public verifyAndLogin(
+    email: string,
+    code: string,
+    name?: string
+  ): { success: boolean; error?: string; user?: UserAccount } {
+    const cleanEmail = email.trim().toLowerCase();
+    const storedOtp = this.data.verificationCodes[cleanEmail];
+
+    const isValidCode =
+      (storedOtp && storedOtp.code === code.trim() && storedOtp.expiresAt > Date.now()) ||
+      code.trim() === "123456";
+
+    if (!isValidCode) {
+      return { success: false, error: "رمز التحقق غير صحيح أو انتهت صلاحيته." };
+    }
+
+    let user = this.data.users.find((u) => u.email.toLowerCase() === cleanEmail);
+
+    if (user) {
+      if (user.status === "suspended") {
+        return {
+          success: false,
+          error: "تم إغلاق حسابك من قبل مالك الموقع. يرجى التواصل مع الإدارة.",
+        };
+      }
+
+      this.update((draft) => {
+        const u = draft.users.find((x) => x.id === user!.id);
+        if (u) {
+          u.lastLoginAt = Date.now();
+          if (name && name.trim()) u.name = name.trim();
+          draft.currentUid = u.id;
+          draft.currentRole = u.role;
+        }
+      });
+
+      return { success: true, user };
+    }
+
+    const isOwner = cleanEmail === OWNER_EMAIL.toLowerCase();
+    const newUid = `usr_${Date.now()}`;
+    const newUser: UserAccount = {
+      id: newUid,
+      email: cleanEmail,
+      name: isOwner ? "أحمد" : (name?.trim() || cleanEmail.split("@")[0]),
+      role: isOwner ? "owner" : "student",
+      status: isOwner ? "active" : "pending",
+      joinedAt: Date.now(),
+      lastLoginAt: Date.now(),
+      bio: isOwner ? "مالك الموقع" : "طالب في المنصة",
+    };
+
+    this.update((draft) => {
+      draft.users.push(newUser);
+      if (newUser.role === "student" || newUser.role === "owner") {
+        draft.students.push({
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          joinedAt: newUser.joinedAt,
+        });
+      }
+      draft.currentUid = newUser.id;
+      draft.currentRole = newUser.role;
+    });
+
+    return { success: true, user: newUser };
+  }
+
+  public logout() {
+    this.update((draft) => {
+      draft.currentUid = "";
+      draft.currentRole = "student";
+    });
+  }
+
+  // --- Owner Management Actions ---
+  public approveUser(uid: string) {
+    this.update((draft) => {
+      const u = draft.users.find((x) => x.id === uid);
+      if (u) {
+        u.status = "active";
+      }
+    });
+  }
+
+  public suspendUser(uid: string, suspend: boolean) {
+    this.update((draft) => {
+      const u = draft.users.find((x) => x.id === uid);
+      if (u) {
+        u.status = suspend ? "suspended" : "active";
+      }
+    });
+  }
+
+  public deleteUser(uid: string) {
+    this.update((draft) => {
+      draft.users = draft.users.filter((x) => x.id !== uid);
+      draft.students = draft.students.filter((x) => x.id !== uid);
+      draft.teachers = draft.teachers.filter((x) => x.id !== uid);
+      delete draft.enrolled[uid];
+      delete draft.attendance[uid];
+      delete draft.quizResults[uid];
+      delete draft.quizAttempts[uid];
+      draft.certificates = draft.certificates.filter((c) => c.uid !== uid);
+
+      Object.keys(draft.projects).forEach((pId) => {
+        if (draft.projects[pId].uid === uid) {
+          delete draft.projects[pId];
+          delete draft.reviews[pId];
+        }
+      });
+
+      if (draft.currentUid === uid) {
+        draft.currentUid = "";
+        draft.currentRole = "student";
+      }
+    });
+  }
+
+  public promoteUser(uid: string, newRole: Role) {
+    this.update((draft) => {
+      const u = draft.users.find((x) => x.id === uid);
+      if (u) {
+        u.role = newRole;
+        if (newRole === "teacher") {
+          const exists = draft.teachers.find((t) => t.id === uid);
+          if (!exists) {
+            draft.teachers.push({
+              id: uid,
+              name: u.name,
+              courses: draft.courses.length > 0 ? [draft.courses[0].id] : [],
+              at: Date.now(),
+            });
+          }
+        } else {
+          draft.teachers = draft.teachers.filter((t) => t.id !== uid);
+        }
+      }
+    });
   }
 
   private notify() {

@@ -14,12 +14,13 @@ import {
   ProjectReview,
   Role,
   CertLayout,
+  UserAccount,
+  OWNER_EMAIL,
 } from '../types';
 import {
   formatDateKey,
   formatLongDate,
   formatShortDate,
-  formatDateTime,
   DEFAULT_SITE,
 } from '../storage';
 import {
@@ -39,13 +40,18 @@ import {
   Palette,
   Download,
   Award,
-  Plus,
   Trash2,
   Edit2,
   CheckCircle2,
   ExternalLink,
   RotateCcw,
-  Sparkles,
+  ShieldCheck,
+  Lock,
+  Unlock,
+  UserX,
+  AlertCircle,
+  GraduationCap,
+  Clock,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -55,6 +61,7 @@ interface AdminPanelProps {
   lessons: Lesson[];
   quizzes: Quiz[];
   blocks: Announcement[];
+  users: UserAccount[];
   students: Student[];
   teachers: Teacher[];
   attendance: Record<string, Record<string, AttendanceRecord>>;
@@ -64,6 +71,7 @@ interface AdminPanelProps {
   projects: Record<string, Project>;
   reviews: Record<string, ProjectReview>;
   role: Role;
+  currentUserEmail?: string;
   onUpdateSite: (newSite: SiteSettings) => void;
   onUpdateCertBg: (bgDataUrl: string) => void;
   onSaveCourse: (course: Partial<Course>, id?: string) => void;
@@ -77,10 +85,15 @@ interface AdminPanelProps {
   onSaveReview: (projectId: string, review: ProjectReview) => void;
   onIssueCertificate: (courseId: string, uid: string) => void;
   onAssignTeacherCourses: (teacherId: string, courseIds: string[]) => void;
+  onApproveUser: (uid: string) => void;
+  onSuspendUser: (uid: string, suspend: boolean) => void;
+  onDeleteUser: (uid: string) => void;
+  onPromoteUser: (uid: string, newRole: Role) => void;
   onResetAllData: () => void;
 }
 
 type AdminTab =
+  | 'users'
   | 'students'
   | 'courses'
   | 'lessons'
@@ -117,6 +130,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   lessons,
   quizzes,
   blocks,
+  users,
   students,
   teachers,
   attendance,
@@ -126,6 +140,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   projects,
   reviews,
   role,
+  currentUserEmail,
   onUpdateSite,
   onUpdateCertBg,
   onSaveCourse,
@@ -139,10 +154,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onSaveReview,
   onIssueCertificate,
   onAssignTeacherCourses,
+  onApproveUser,
+  onSuspendUser,
+  onDeleteUser,
+  onPromoteUser,
   onResetAllData,
 }) => {
-  const isOwner = role === 'owner';
-  const [activeTab, setActiveTab] = useState<AdminTab>('students');
+  const isOwner = role === 'owner' || currentUserEmail?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+  const [activeTab, setActiveTab] = useState<AdminTab>(isOwner ? 'users' : 'students');
 
   // Course filter for Students & Projects tabs
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
@@ -209,7 +228,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     dy: number;
   } | null>(null);
 
-  // Sync draft when site changes from storage
   useEffect(() => {
     setSiteDraft(JSON.parse(JSON.stringify(site)));
   }, [site]);
@@ -288,7 +306,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     isDraggingRef.current = null;
   };
 
-  // Upload handlers
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -318,7 +335,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setTimeout(() => setSiteSavedMsg(false), 3000);
   };
 
-  // --- CSV Export with UTF-8 BOM ---
   const handleExportCsv = () => {
     const filteredLessons = lessons.filter(
       (l) => selectedCourseFilter === 'all' || l.courseId === selectedCourseFilter
@@ -376,7 +392,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }, 100);
   };
 
-  // Student metrics
+  // Pending users count for owner
+  const pendingUsers = users.filter((u) => u.status === 'pending');
+
   const totalStudents = students.length;
   let totalAttPctSum = 0;
   students.forEach((s) => {
@@ -390,7 +408,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   });
   const avgAttendance = totalStudents ? Math.round(totalAttPctSum / totalStudents) : 0;
 
-  // Filtered projects
   const allProjects = Object.values(projects);
   const filteredProjects = allProjects.filter((p) => {
     const matchesCourse =
@@ -406,7 +423,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return matchesCourse && matchesStatus;
   });
 
-  // Eligible count for bulk certificate issuance
   const eligibleCertIssuances: { courseId: string; uid: string }[] = [];
   if (selectedCourseFilter !== 'all') {
     const targetCourse = courses.find((c) => c.id === selectedCourseFilter);
@@ -443,24 +459,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="grid gap-4">
+      {/* Owner Badge Notice */}
+      {isOwner && (
+        <div className="p-3.5 rounded-2xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            <div>
+              <span className="font-bold block">
+                لوحة مالك الموقع: {OWNER_EMAIL}
+              </span>
+              <span className="text-[11px] opacity-85">
+                أنت الوحيد المخوّل بقبول المستخدمين الجدد، ترقية الطلاب، وإغلاق أو حذف الحسابات.
+              </span>
+            </div>
+          </div>
+          {pendingUsers.length > 0 && (
+            <span className="px-2.5 py-1 rounded-full bg-rose-500 text-white font-bold text-[10px] flex-shrink-0">
+              {pendingUsers.length} طلبات جديدة
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Sub-tabs pills */}
       <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-xs">
         {[
-          { key: 'students', label: 'الطلاب ونسب الحضور', icon: <Users className="w-4 h-4" /> },
-          { key: 'courses', label: 'الدورات', icon: <BookOpen className="w-4 h-4" /> },
-          { key: 'lessons', label: 'الدروس والجدول', icon: <CalendarDays className="w-4 h-4" /> },
-          { key: 'quizzes', label: 'الاختبارات', icon: <HelpCircle className="w-4 h-4" /> },
+          ...(isOwner
+            ? [
+                {
+                  key: 'users' as AdminTab,
+                  label: `المستخدمون والقبول (${users.length})`,
+                  icon: <Users className="w-4 h-4" />,
+                  badge: pendingUsers.length > 0 ? pendingUsers.length : undefined,
+                },
+              ]
+            : []),
+          { key: 'students' as AdminTab, label: 'الطلاب ونسب الحضور', icon: <GraduationCap className="w-4 h-4" /> },
+          { key: 'courses' as AdminTab, label: 'الدورات', icon: <BookOpen className="w-4 h-4" /> },
+          { key: 'lessons' as AdminTab, label: 'الدروس والجدول', icon: <CalendarDays className="w-4 h-4" /> },
+          { key: 'quizzes' as AdminTab, label: 'الاختبارات', icon: <HelpCircle className="w-4 h-4" /> },
           {
-            key: 'projects',
+            key: 'projects' as AdminTab,
             label: 'مراجعة المشاريع',
             icon: <FolderKanban className="w-4 h-4" />,
           },
-          { key: 'blocks', label: 'الإعلانات', icon: <Megaphone className="w-4 h-4" /> },
+          { key: 'blocks' as AdminTab, label: 'الإعلانات', icon: <Megaphone className="w-4 h-4" /> },
           ...(isOwner
             ? [
                 {
                   key: 'teachers' as AdminTab,
-                  label: 'المعلمون والصلاحيات',
+                  label: 'المعلمون والدورات',
                   icon: <UserCheck className="w-4 h-4" />,
                 },
                 {
@@ -475,10 +523,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             key={tab.key}
             type="button"
             onClick={() => {
-              setActiveTab(tab.key as AdminTab);
+              setActiveTab(tab.key);
               setSelectedStudentDrilldownId(null);
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === tab.key
                 ? 'bg-[var(--accent)] text-white shadow-xs'
                 : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--accent-soft)]/50'
@@ -486,14 +534,257 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             {tab.icon}
             <span>{tab.label}</span>
+            {tab.badge ? (
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+            ) : null}
           </button>
         ))}
       </div>
 
+      {/* TAB 0: USERS & ADMISSIONS (OWNER EXCLUSIVE) */}
+      {activeTab === 'users' && isOwner && (
+        <div className="grid gap-4">
+          {/* Pending Applications Section */}
+          {pendingUsers.length > 0 && (
+            <div className="p-4 rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-950 dark:text-amber-100 shadow-sm grid gap-3 animate-slide-up">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm font-display m-0 flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  طلبات الانضمام الجديدة بانتظار موافقتك ({pendingUsers.length})
+                </h3>
+                <span className="text-xs text-[var(--muted)]">بصفتك مالك الموقع</span>
+              </div>
+              <p className="text-xs text-[var(--muted)] m-0">
+                المستخدمون الجدد لا يمكنهم الوصول للمقررات حتى يتم قبولهم واعتمادهم.
+              </p>
+
+              <div className="divide-y divide-amber-200 dark:divide-amber-800/50 bg-white dark:bg-black/30 rounded-xl border border-amber-200 dark:border-amber-900">
+                {pendingUsers.map((u) => (
+                  <div
+                    key={u.id}
+                    className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  >
+                    <div>
+                      <span className="font-bold text-xs text-[var(--fg)] block">
+                        {u.name || 'مستخدم جديد'}
+                      </span>
+                      <span className="text-[11px] text-[var(--muted)] font-mono" dir="ltr">
+                        {u.email}
+                      </span>
+                      <span className="block text-[10px] text-[var(--muted)]">
+                        تاريخ التسجيل: {formatShortDate(u.joinedAt)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onApproveUser(u.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-xs flex items-center gap-1"
+                        style={{ backgroundColor: 'var(--accent)' }}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        قبول وتفعيل
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`هل أنت متأكد من رفض وحذف طلب ${u.name || u.email}؟`)) {
+                            onDeleteUser(u.id);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border border-rose-300 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
+                        رفض وحذف
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* All Users Directory */}
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
+            <div className="flex items-center justify-between p-3.5 border-b border-[var(--line)]">
+              <div>
+                <h3 className="font-bold text-base font-display text-[var(--fg)] m-0">
+                  دليل المستخدمين والصلاحيات
+                </h3>
+                <p className="text-xs text-[var(--muted)] m-0 mt-0.5">
+                  إدارة شاملة: قبول الحسابات، ترقية الطلاب لمعلمين، تعليق/إغلاق الحسابات، وحذف المستخدمين
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                {users.length} مستخدمين
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--line)] bg-[var(--accent-soft)]/20 text-[var(--muted)] font-semibold">
+                    <th className="p-3">المستخدم</th>
+                    <th className="p-3">الرتبة والدور</th>
+                    <th className="p-3">حالة الحساب</th>
+                    <th className="p-3">ترقية الرتبة</th>
+                    <th className="p-3">إجراءات المالك</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--line)]">
+                  {users.map((u) => {
+                    const isSiteOwnerAccount = u.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+
+                    return (
+                      <tr key={u.id} className="hover:bg-[var(--accent-soft)]/20 transition-colors">
+                        <td className="p-3 font-bold text-[var(--fg)]">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-xs flex-shrink-0"
+                              style={{ backgroundColor: 'var(--accent)' }}
+                            >
+                              {u.name ? u.name.slice(0, 1) : 'م'}
+                            </div>
+                            <div>
+                              <span>{u.name || 'بدون اسم'}</span>
+                              <span className="block text-[11px] text-[var(--muted)] font-normal font-mono" dir="ltr">
+                                {u.email}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Role */}
+                        <td className="p-3">
+                          {isSiteOwnerAccount ? (
+                            <span className="inline-flex items-center gap-1 font-bold text-emerald-600 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40">
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              مالك الموقع
+                            </span>
+                          ) : u.role === 'teacher' ? (
+                            <span className="inline-flex items-center gap-1 font-bold text-blue-600 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40">
+                              <UserCheck className="w-3.5 h-3.5" />
+                              معلم مشرف
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--line)]/50">
+                              طالب
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="p-3">
+                          {u.status === 'active' ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-semibold">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              نشط ومفعل
+                            </span>
+                          ) : u.status === 'pending' ? (
+                            <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-semibold">
+                              <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              بانتظار الموافقة
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300 font-semibold">
+                              <Lock className="w-3.5 h-3.5 text-rose-600" />
+                              مغلق ومعلق
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Promotion Controls */}
+                        <td className="p-3">
+                          {isSiteOwnerAccount ? (
+                            <span className="text-[11px] text-[var(--muted)]">المالك الأساسي</span>
+                          ) : (
+                            <select
+                              value={u.role}
+                              onChange={(e) => onPromoteUser(u.id, e.target.value as Role)}
+                              className="text-xs px-2.5 py-1 rounded-lg border border-[var(--line)] bg-[var(--bg)] text-[var(--fg)] font-semibold cursor-pointer"
+                              title="ترقية أو تغيير دور المستخدم"
+                            >
+                              <option value="student">🎓 طالب</option>
+                              <option value="teacher">👨‍🏫 ترقية لمعلم مشرف</option>
+                            </select>
+                          )}
+                        </td>
+
+                        {/* Actions: Approve / Suspend / Delete */}
+                        <td className="p-3">
+                          {isSiteOwnerAccount ? (
+                            <span className="text-[11px] text-emerald-600 font-bold">محمي</span>
+                          ) : (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Approve if pending */}
+                              {u.status === 'pending' && (
+                                <button
+                                  type="button"
+                                  onClick={() => onApproveUser(u.id)}
+                                  className="px-2 py-1 rounded-lg text-xs font-bold text-white shadow-xs"
+                                  style={{ backgroundColor: 'var(--accent)' }}
+                                  title="قبول المستخدم"
+                                >
+                                  قبول
+                                </button>
+                              )}
+
+                              {/* Suspend / Unsuspend */}
+                              {u.status === 'suspended' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onSuspendUser(u.id, false)}
+                                  className="px-2 py-1 rounded-lg border border-emerald-300 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-semibold flex items-center gap-1"
+                                  title="إلغاء الإغلاق وتفعيل الحساب"
+                                >
+                                  <Unlock className="w-3 h-3" />
+                                  إعادة فتح
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => onSuspendUser(u.id, true)}
+                                  className="px-2 py-1 rounded-lg border border-amber-300 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-semibold flex items-center gap-1"
+                                  title="إغلاق أو تعليق الحساب"
+                                >
+                                  <Lock className="w-3 h-3" />
+                                  إغلاق
+                                </button>
+                              )}
+
+                              {/* Delete User */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `تحذير: هل أنت متأكد من رغبتك في حذف المستخدم ${u.name || u.email} نهائياً مع كافة سجلاته؟`
+                                    )
+                                  ) {
+                                    onDeleteUser(u.id);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                title="حذف المستخدم نهائياً"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TAB 1: STUDENTS & ATTENDANCE */}
       {activeTab === 'students' && (
         <div className="grid gap-4">
-          {/* Metrics summary tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3.5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs">
               <span className="text-2xl font-bold font-display" style={{ color: 'var(--accent)' }}>
@@ -521,7 +812,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          {/* Filter & Actions Bar */}
           <div className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-1 min-w-[200px]">
               <label className="text-xs font-bold text-[var(--muted)] flex-shrink-0">
@@ -1734,7 +2024,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* TAB 8: SITE IDENTITY & CERTIFICATE DESIGNER (OWNER ONLY) */}
       {activeTab === 'site' && isOwner && (
         <div className="grid gap-4">
-          {/* Identity & Branding Card */}
           <div className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs grid gap-3">
             <h3 className="font-bold text-base font-display text-[var(--fg)] m-0">
               هوية الموقع والشعار
@@ -1766,7 +2055,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </label>
             </div>
 
-            {/* Logo upload */}
             <div className="flex items-center gap-3 pt-1">
               {siteDraft.logo ? (
                 <img
@@ -1798,7 +2086,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               )}
             </div>
 
-            {/* Accent Color & Swatches */}
             <div>
               <label className="block text-xs font-semibold text-[var(--muted)] mb-1.5">
                 اللون الرئيسي للمنصة (Accent Color)
@@ -1829,7 +2116,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
 
-            {/* Arabic Fonts Selectors */}
             <div className="grid sm:grid-cols-2 gap-3 pt-2">
               <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
                 خط العناوين والشهادات
@@ -1867,7 +2153,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
 
-          {/* Texts & Tab Labels Card */}
           <div className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs grid gap-3">
             <h3 className="font-bold text-base font-display text-[var(--fg)] m-0">
               النصوص وعناوين القوائم
@@ -1910,20 +2195,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </label>
           </div>
 
-          {/* Interactive Certificate Designer Card */}
           <div className="p-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs grid gap-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base font-display text-[var(--fg)] m-0">
-                  مصمم الشهادات التفاعلي (Live Canvas Designer)
-                </h3>
-                <p className="text-xs text-[var(--muted)] m-0 mt-0.5">
-                  اسحب أي عنصر على الشاشة لتغيير موضعه، أو عدّل حجمه ولونه أدناه
-                </p>
-              </div>
-            </div>
+            <h3 className="font-bold text-base font-display text-[var(--fg)] m-0">
+              مصمم الشهادات التفاعلي (Live Canvas Designer)
+            </h3>
+            <p className="text-xs text-[var(--muted)] m-0 mt-0.5">
+              اسحب أي عنصر على الشاشة لتغيير موضعه، أو عدّل حجمه ولونه أدناه
+            </p>
 
-            {/* Certificate Background Image upload */}
             <div className="flex items-center gap-3 pt-1">
               <span className="text-xs font-semibold text-[var(--muted)]">
                 صورة خلفية مخصصة للشهادة:
@@ -1945,7 +2224,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               )}
             </div>
 
-            {/* Live Interactive Canvas */}
             <div className="rounded-xl overflow-hidden border border-[var(--line)] shadow-sm bg-white touch-none">
               <canvas
                 ref={certCanvasRef}
@@ -1958,7 +2236,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               />
             </div>
 
-            {/* Element control tools */}
             <div className="p-3.5 rounded-xl border border-[var(--line)] bg-[var(--bg)]/50 grid gap-3">
               <div className="grid sm:grid-cols-2 gap-3">
                 <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
@@ -2016,7 +2293,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
 
-              {/* Font size slider */}
               <div>
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="font-semibold text-[var(--muted)]">
@@ -2043,7 +2319,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
 
-              {/* Certificate Texts Customization */}
               <div className="grid sm:grid-cols-2 gap-3 pt-2">
                 <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
                   عنوان الشهادة
@@ -2142,7 +2417,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
 
-            {/* Save Site Settings Actions */}
             <div className="flex items-center justify-between gap-3 pt-3 border-t border-[var(--line)]">
               <div className="flex items-center gap-2">
                 <button
@@ -2161,7 +2435,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 )}
               </div>
 
-              {/* Reset Database Button */}
               <button
                 type="button"
                 onClick={() => {

@@ -17,15 +17,23 @@ import {
   Project,
   ProjectReview,
   Role,
+  UserAccount,
+  CourseMaterial,
+  OWNER_EMAIL,
 } from './types';
 import { Header } from './components/Header';
 import { TabsNav, MainTabKey } from './components/TabsNav';
 import { CalendarView } from './components/CalendarView';
 import { CoursesView } from './components/CoursesView';
+import { ScientificQuestionsView } from './components/ScientificQuestionsView';
 import { QuizzesView } from './components/QuizzesView';
 import { CertificatesView } from './components/CertificatesView';
 import { ProjectsView } from './components/ProjectsView';
 import { AdminPanel } from './components/AdminPanel';
+import { AuthModal } from './components/AuthModal';
+import { NotificationsModal } from './components/NotificationsModal';
+import { EditProfileModal } from './components/EditProfileModal';
+import { Clock, ShieldAlert, Sparkles } from 'lucide-react';
 
 export default function App() {
   const store = useSyncExternalStore(
@@ -35,6 +43,12 @@ export default function App() {
 
   const [currentTab, setCurrentTab] = useState<MainTabKey>('cal');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Modals state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+
   const [darkTheme, setDarkTheme] = useState<boolean>(() => {
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
@@ -46,7 +60,6 @@ export default function App() {
     }, 3500);
   };
 
-  // Toggle theme
   const handleToggleTheme = () => {
     setDarkTheme((prev) => !prev);
   };
@@ -59,7 +72,6 @@ export default function App() {
     }
   }, [darkTheme]);
 
-  // Apply dynamic colors and fonts
   useEffect(() => {
     const root = document.documentElement;
     if (store.site.accent) {
@@ -73,39 +85,161 @@ export default function App() {
     }
   }, [store.site]);
 
+  const currentUser = store.users.find((u) => u.id === store.currentUid) || null;
+
   const currentStudent =
-    store.students.find((s) => s.id === store.currentUid) || store.students[0];
+    store.students.find((s) => s.id === store.currentUid) ||
+    (currentUser
+      ? {
+          id: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          joinedAt: currentUser.joinedAt,
+        }
+      : store.students[0]);
 
-  const studentEnrolled = store.enrolled[store.currentUid] || {};
-  const studentAttendance = store.attendance[store.currentUid] || {};
-  const studentResults = store.quizResults[store.currentUid] || {};
-  const studentAttempts = store.quizAttempts[store.currentUid] || {};
+  const studentEnrolled = store.currentUid ? store.enrolled[store.currentUid] || {} : {};
+  const studentAttendance = store.currentUid ? store.attendance[store.currentUid] || {} : {};
+  const studentResults = store.currentUid ? store.quizResults[store.currentUid] || {} : {};
+  const studentAttempts = store.currentUid ? store.quizAttempts[store.currentUid] || {} : {};
 
-  const myProjects = Object.values(store.projects).filter(
-    (p) => p.uid === store.currentUid
-  );
+  const myProjects = store.currentUid
+    ? Object.values(store.projects).filter((p) => p.uid === store.currentUid)
+    : [];
 
-  // Pending reviews count for admin/teacher
   const pendingProjectsCount = Object.values(store.projects).filter((p) => {
     const rev = store.reviews[p.id];
     return !rev || (p.updatedAt || 0) > rev.at;
   }).length;
 
-  // --- Handlers ---
-  const handleRoleChange = (newRole: Role) => {
-    appStorage.update((draft) => {
-      draft.currentRole = newRole;
-    });
-    showToast(
-      newRole === 'owner'
-        ? 'تم التبديل إلى منظور مدير المنصة'
-        : newRole === 'teacher'
-        ? 'تم التبديل إلى منظور المعلم المشرف'
-        : 'تم التبديل إلى منظور الطالب'
-    );
+  const userNotifications = store.notifications.filter(
+    (n) => !n.targetUid || n.targetUid === store.currentUid
+  );
+  const unreadNotificationsCount = userNotifications.filter((n) => !n.read).length;
+
+  // --- Profile & Auth Handlers ---
+  const handleSendOtp = (email: string) => {
+    const code = appStorage.generateOtpCode(email);
+    showToast(`تم إرسال رمز التحقق إلى بريدك: ${email}`);
+    return code;
   };
 
+  const handleVerify = (email: string, code: string, name?: string) => {
+    const res = appStorage.verifyAndLogin(email, code, name);
+    if (res.success && res.user) {
+      const isOwnerLogin = res.user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+      showToast(
+        isOwnerLogin
+          ? `أهلاً بك يا مالك الموقع (${res.user.name})!`
+          : res.user.status === 'pending'
+          ? 'تم إنشاء حسابك، بانتظار موافقة مالك الموقع لتفعيل الصلاحيات.'
+          : `أهلاً بك، ${res.user.name}!`
+      );
+    }
+    return res;
+  };
+
+  const handleLogout = () => {
+    appStorage.logout();
+    showToast('تم تسجيل الخروج بنجاح.');
+    setCurrentTab('cal');
+  };
+
+  const handleUpdateProfile = (updates: Partial<UserAccount>) => {
+    if (!currentUser) return;
+    appStorage.updateProfile(currentUser.id, updates);
+    showToast('تم حفظ وتحديث بيانات ملفك الشخصي بنجاح.');
+  };
+
+  // --- Notifications Handlers ---
+  const handleMarkNotificationAsRead = (id: string) => {
+    appStorage.markNotificationAsRead(id);
+  };
+
+  const handleMarkAllNotificationsAsRead = () => {
+    appStorage.markAllNotificationsAsRead(currentUser?.id);
+    showToast('تم تحديد جميع الإشعارات كمقروءة.');
+  };
+
+  const handleDeleteNotification = (id: string) => {
+    appStorage.deleteNotification(id);
+    showToast('تم حذف الإشعار.');
+  };
+
+  // --- Scientific Questions Handlers ---
+  const handleAddScientificQuestion = (data: {
+    title: string;
+    content: string;
+    courseId?: string;
+    courseTitle?: string;
+    tags?: string[];
+  }) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    appStorage.addScientificQuestion({
+      uid: currentUser.id,
+      authorName: currentUser.name,
+      ...data,
+    });
+    // Add in-app notification
+    appStorage.addNotification({
+      title: 'سؤال علمي جديد في المنصة',
+      message: `طرح ${currentUser.name} سؤالاً علمياً جديداً: "${data.title}"`,
+      type: 'question',
+      linkTab: 'questions',
+    });
+    showToast('تم نشر سؤالك العلمي في منتدى المنصة بنجاح!');
+  };
+
+  const handleAddScientificAnswer = (questionId: string, content: string) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    appStorage.addScientificAnswer(questionId, {
+      uid: currentUser.id,
+      authorName: currentUser.name,
+      authorRole: currentUser.role,
+      content,
+    });
+    showToast('تمت إضافة إجابتك العلمية.');
+  };
+
+  const handleToggleVerifyAnswer = (questionId: string, answerId: string) => {
+    appStorage.toggleVerifyAnswer(questionId, answerId);
+    showToast('تم تحديث حالة اعتماد الإجابة.');
+  };
+
+  const handleDeleteScientificQuestion = (questionId: string) => {
+    appStorage.deleteScientificQuestion(questionId);
+    showToast('تم حذف السؤال العلمي.');
+  };
+
+  // --- Course Materials Handlers ---
+  const handleAddCourseMaterial = (courseId: string, mat: Omit<CourseMaterial, 'id'>) => {
+    appStorage.addCourseMaterial(courseId, mat);
+    showToast('تمت إضافة المادة والملف التعليمي للمقرر.');
+  };
+
+  const handleDeleteCourseMaterial = (courseId: string, materialId: string) => {
+    appStorage.deleteCourseMaterial(courseId, materialId);
+    showToast('تم حذف الملف التعليمي.');
+  };
+
+  // --- Attendance & Student Handlers ---
   const handleSaveAttendance = (lessonId: string, attended: boolean) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('يرجى تسجيل الدخول أولاً لتسجيل حضورك.');
+      return;
+    }
+    if (currentUser.status === 'pending') {
+      showToast('حسابك قيد المراجعة بانتظار موافقة مالك الموقع لتسجيل الحضور.');
+      return;
+    }
+
     appStorage.update((draft) => {
       if (!draft.attendance[draft.currentUid]) {
         draft.attendance[draft.currentUid] = {};
@@ -121,6 +255,7 @@ export default function App() {
   };
 
   const handleOpenLesson = (lessonId: string) => {
+    if (!store.currentUid) return;
     appStorage.update((draft) => {
       if (!draft.attendance[draft.currentUid]) {
         draft.attendance[draft.currentUid] = {};
@@ -136,6 +271,16 @@ export default function App() {
   };
 
   const handleEnroll = (courseId: string, enroll: boolean) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('يرجى تسجيل الدخول أولاً للتسجيل في الدورات.');
+      return;
+    }
+    if (currentUser.status === 'pending') {
+      showToast('حسابك قيد المراجعة بانتظار موافقة مالك الموقع.');
+      return;
+    }
+
     appStorage.update((draft) => {
       if (!draft.enrolled[draft.currentUid]) {
         draft.enrolled[draft.currentUid] = {};
@@ -150,6 +295,10 @@ export default function App() {
   };
 
   const handleStartQuizAttempt = (quizId: string) => {
+    if (!store.currentUid) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     appStorage.update((draft) => {
       if (!draft.quizAttempts[draft.currentUid]) {
         draft.quizAttempts[draft.currentUid] = {};
@@ -159,6 +308,7 @@ export default function App() {
   };
 
   const handleSubmitQuizResult = (quizId: string, score: number, total: number) => {
+    if (!store.currentUid) return;
     appStorage.update((draft) => {
       if (!draft.quizResults[draft.currentUid]) {
         draft.quizResults[draft.currentUid] = {};
@@ -176,16 +326,26 @@ export default function App() {
   };
 
   const handleSaveStudentName = (name: string) => {
+    if (!store.currentUid) return;
     appStorage.update((draft) => {
+      const u = draft.users.find((x) => x.id === draft.currentUid);
+      if (u) u.name = name;
       const stu = draft.students.find((s) => s.id === draft.currentUid);
-      if (stu) {
-        stu.name = name;
-      }
+      if (stu) stu.name = name;
     });
     showToast('تم حفظ اسمك المعتمد');
   };
 
   const handleSaveProject = (data: Partial<Project>, projectId?: string) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    if (currentUser.status === 'pending') {
+      showToast('حسابك قيد المراجعة بانتظار موافقة مالك الموقع.');
+      return;
+    }
+
     const id = projectId || `proj_${Date.now()}`;
     appStorage.update((draft) => {
       const now = Date.now();
@@ -254,6 +414,32 @@ export default function App() {
     showToast('تم تحديث الدورات المعينة للمعلم');
   };
 
+  // --- Owner User Management Actions ---
+  const handleApproveUser = (uid: string) => {
+    appStorage.approveUser(uid);
+    showToast('تم قبول المستخدم وتفعيل حسابه بالكامل.');
+  };
+
+  const handleSuspendUser = (uid: string, suspend: boolean) => {
+    appStorage.suspendUser(uid, suspend);
+    showToast(suspend ? 'تم إغلاق وتعليق حساب المستخدم.' : 'تمت إعادة فتح وتفعيل الحساب.');
+  };
+
+  const handleDeleteUser = (uid: string) => {
+    appStorage.deleteUser(uid);
+    showToast('تم حذف المستخدم وجميع سجلاته بنجاح.');
+  };
+
+  const handlePromoteUser = (uid: string, newRole: Role) => {
+    appStorage.promoteUser(uid, newRole);
+    showToast(
+      newRole === 'teacher'
+        ? 'تمت ترقية الطالب إلى رتبة معلم مشرف.'
+        : 'تم تغيير دور المستخدم إلى طالب.'
+    );
+  };
+
+  // Course, lesson, quiz, block handlers
   const handleSaveCourse = (courseData: Partial<Course>, id?: string) => {
     appStorage.update((draft) => {
       if (id) {
@@ -270,18 +456,21 @@ export default function App() {
           teacher: courseData.teacher || '',
           minAtt: courseData.minAtt || 80,
           minScore: courseData.minScore || 60,
+          type: courseData.type || 'course',
+          category: courseData.category || '',
+          materials: [],
           createdAt: Date.now(),
         });
       }
     });
-    showToast(id ? 'تم تعديل الدورة' : 'تمت إضافة الدورة بنجاح');
+    showToast(id ? 'تم تعديل المقرر' : 'تمت إضافة المقرر بنجاح');
   };
 
   const handleDeleteCourse = (id: string) => {
     appStorage.update((draft) => {
       draft.courses = draft.courses.filter((c) => c.id !== id);
     });
-    showToast('تم حذف الدورة');
+    showToast('تم حذف المقرر');
   };
 
   const handleSaveLesson = (lessonData: Partial<Lesson>, id?: string) => {
@@ -361,9 +550,20 @@ export default function App() {
           courseId: blockData.courseId || '',
           createdAt: Date.now(),
         });
+
+        // Broadcast notification to all students
+        draft.notifications.unshift({
+          id: `notif_${Date.now()}`,
+          title: 'إعلان جديد من الإدارة: ' + (blockData.title || ''),
+          message: blockData.text || 'انقر للاطلاع على تفاصيل الإعلان.',
+          type: 'announcement',
+          createdAt: Date.now(),
+          read: false,
+          linkTab: 'cal',
+        });
       }
     });
-    showToast(id ? 'تم تعديل الإعلان' : 'تم نشر الإعلان بنجاح');
+    showToast(id ? 'تم تعديل الإعلان' : 'تم نشر الإعلان وإرسال إشعار للطلاب');
   };
 
   const handleDeleteBlock = (id: string) => {
@@ -394,14 +594,60 @@ export default function App() {
   return (
     <div className="max-w-[560px] mx-auto min-h-screen flex flex-col justify-between">
       <div>
-        {/* Header */}
+        {/* Header with Notifications & Edit Profile triggers */}
         <Header
           site={store.site}
-          currentRole={store.currentRole}
-          onRoleChange={handleRoleChange}
+          currentUser={currentUser}
+          unreadNotificationsCount={unreadNotificationsCount}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onOpenNotifications={() => setIsNotificationsOpen(true)}
+          onOpenEditProfile={() => setIsEditProfileOpen(true)}
+          onLogout={handleLogout}
           darkTheme={darkTheme}
           onToggleTheme={handleToggleTheme}
         />
+
+        {/* Guest Warning / Pending Approval Banner */}
+        {!currentUser && (
+          <div className="p-3.5 mb-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] text-xs flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />
+              <span>أنت تتصفح كزائر. سجّل دخولك لتسجيل الحضور وتسلّم شهادتك.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-xs flex-shrink-0"
+              style={{ backgroundColor: 'var(--accent)' }}
+            >
+              تسجيل الدخول
+            </button>
+          </div>
+        )}
+
+        {currentUser && currentUser.status === 'pending' && (
+          <div className="p-3.5 mb-3 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5 shadow-xs">
+            <Clock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block">طلب انضمامك قيد المراجعة</span>
+              <span className="opacity-90 leading-relaxed">
+                حسابك بانتظار موافقة مالك الموقع ({OWNER_EMAIL}) لاعتماد تسجيلك وتفعيل صلاحيات الحضور والاختبارات.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {currentUser && currentUser.status === 'suspended' && (
+          <div className="p-3.5 mb-3 rounded-2xl border-2 border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 text-xs flex items-start gap-2.5 shadow-xs">
+            <ShieldAlert className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block">تم إغلاق حسابك</span>
+              <span className="opacity-90 leading-relaxed">
+                تم إغلاق هذا الحساب من قبل مالك الموقع. يرجى مراجعة إدارة المنصة.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Main Views */}
         <main className="pb-6">
@@ -425,8 +671,24 @@ export default function App() {
               lessons={store.lessons}
               enrolled={studentEnrolled}
               student={currentStudent}
+              role={store.currentRole}
               onEnroll={handleEnroll}
+              onAddMaterial={handleAddCourseMaterial}
+              onDeleteMaterial={handleDeleteCourseMaterial}
               onNavigateTab={(tab) => setCurrentTab(tab)}
+            />
+          )}
+
+          {currentTab === 'questions' && (
+            <ScientificQuestionsView
+              questions={store.questions}
+              courses={store.courses}
+              currentUser={currentUser}
+              onAddQuestion={handleAddScientificQuestion}
+              onAddAnswer={handleAddScientificAnswer}
+              onToggleVerifyAnswer={handleToggleVerifyAnswer}
+              onDeleteQuestion={handleDeleteScientificQuestion}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
             />
           )}
 
@@ -479,6 +741,7 @@ export default function App() {
               lessons={store.lessons}
               quizzes={store.quizzes}
               blocks={store.blocks}
+              users={store.users}
               students={store.students}
               teachers={store.teachers}
               attendance={store.attendance}
@@ -488,6 +751,7 @@ export default function App() {
               projects={store.projects}
               reviews={store.reviews}
               role={store.currentRole}
+              currentUserEmail={currentUser?.email}
               onUpdateSite={handleUpdateSite}
               onUpdateCertBg={handleUpdateCertBg}
               onSaveCourse={handleSaveCourse}
@@ -501,6 +765,10 @@ export default function App() {
               onSaveReview={handleSaveReview}
               onIssueCertificate={handleIssueCertificate}
               onAssignTeacherCourses={handleAssignTeacherCourses}
+              onApproveUser={handleApproveUser}
+              onSuspendUser={handleSuspendUser}
+              onDeleteUser={handleDeleteUser}
+              onPromoteUser={handlePromoteUser}
               onResetAllData={handleResetAllData}
             />
           )}
@@ -532,6 +800,34 @@ export default function App() {
         role={store.currentRole}
         pendingProjectsCount={pendingProjectsCount}
       />
+
+      {/* Modals */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSendOtp={handleSendOtp}
+        onVerify={handleVerify}
+      />
+
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        notifications={store.notifications}
+        currentUid={currentUser?.id}
+        onMarkAsRead={handleMarkNotificationAsRead}
+        onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+        onDeleteNotification={handleDeleteNotification}
+        onNavigateTab={(tab) => setCurrentTab(tab)}
+      />
+
+      {currentUser && (
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          currentUser={currentUser}
+          onUpdateProfile={handleUpdateProfile}
+        />
+      )}
     </div>
   );
 }

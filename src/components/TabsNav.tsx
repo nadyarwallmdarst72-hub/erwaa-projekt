@@ -7,9 +7,17 @@ import {
   Award,
   FolderKanban,
   Settings,
+  MessageSquareQuote,
 } from 'lucide-react';
 
-export type MainTabKey = 'cal' | 'courses' | 'quiz' | 'certs' | 'projects' | 'admin';
+export type MainTabKey =
+  | 'cal'
+  | 'courses'
+  | 'questions'
+  | 'quiz'
+  | 'certs'
+  | 'projects'
+  | 'admin';
 
 interface TabsNavProps {
   site: SiteSettings;
@@ -17,6 +25,7 @@ interface TabsNavProps {
   onTabChange: (tab: MainTabKey) => void;
   role: Role;
   pendingProjectsCount?: number;
+  unansweredQuestionsCount?: number;
 }
 
 export const TabsNav: React.FC<TabsNavProps> = ({
@@ -28,8 +37,9 @@ export const TabsNav: React.FC<TabsNavProps> = ({
 }) => {
   const isStaff = role === 'owner' || role === 'teacher';
   const labels = site.labels || {
-    cal: 'لوحتي التعليمية',
-    courses: 'الدورات',
+    cal: 'لوحتي',
+    courses: 'المقررات',
+    questions: 'الأسئلة',
     quiz: 'الاختبارات',
     certs: 'الشهادات',
     projects: 'المشاريع',
@@ -37,7 +47,12 @@ export const TabsNav: React.FC<TabsNavProps> = ({
 
   const tabs: { key: MainTabKey; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'cal', label: labels.cal, icon: <CalendarDays className="w-5 h-5" /> },
-    { key: 'courses', label: labels.courses, icon: <BookOpen className="w-5 h-5" /> },
+    { key: 'courses', label: labels.courses || 'الدورات والمواد', icon: <BookOpen className="w-5 h-5" /> },
+    {
+      key: 'questions',
+      label: labels.questions || 'الأسئلة العلمية',
+      icon: <MessageSquareQuote className="w-5 h-5" />,
+    },
     { key: 'quiz', label: labels.quiz, icon: <HelpCircle className="w-5 h-5" /> },
     { key: 'certs', label: labels.certs, icon: <Award className="w-5 h-5" /> },
     {
@@ -65,7 +80,7 @@ export const TabsNav: React.FC<TabsNavProps> = ({
       }}
       aria-label="شريط التنقل الرئيسي"
     >
-      <div className="max-w-[560px] mx-auto px-2 grid grid-flow-col auto-cols-fr gap-1">
+      <div className="max-w-[560px] mx-auto px-1 grid grid-flow-col auto-cols-fr gap-0.5">
         {tabs.map((tab) => {
           const isActive = currentTab === tab.key;
           return (
@@ -73,7 +88,7 @@ export const TabsNav: React.FC<TabsNavProps> = ({
               key={tab.key}
               type="button"
               onClick={() => onTabChange(tab.key)}
-              className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all ${
+              className={`relative flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all ${
                 isActive
                   ? 'font-bold'
                   : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--accent-soft)]/40'
@@ -91,7 +106,7 @@ export const TabsNav: React.FC<TabsNavProps> = ({
                   </span>
                 ) : null}
               </div>
-              <span className="text-[11px] leading-tight mt-1 truncate max-w-full font-body">
+              <span className="text-[10px] sm:text-[11px] leading-tight mt-1 truncate max-w-full font-body">
                 {tab.label}
               </span>
               {isActive && (

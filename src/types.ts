@@ -1,3 +1,88 @@
+export const OWNER_EMAIL = 'nadyarwallmdarst72@gmail.com';
+
+export type UserStatus = 'active' | 'pending' | 'suspended';
+
+export type Role = 'owner' | 'teacher' | 'student';
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  status: UserStatus;
+  joinedAt: number;
+  lastLoginAt?: number;
+  bio?: string;
+  avatar?: string;
+  phone?: string;
+}
+
+export interface VerificationCode {
+  email: string;
+  code: string;
+  expiresAt: number;
+  createdAt: number;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: 'announcement' | 'review' | 'cert' | 'admission' | 'lesson' | 'question';
+  createdAt: number;
+  read: boolean;
+  targetUid?: string; // empty means all users
+  linkTab?: string;
+}
+
+export interface CourseMaterial {
+  id: string;
+  title: string;
+  type: 'pdf' | 'doc' | 'link' | 'video' | 'archive';
+  url: string;
+  size?: string;
+  description?: string;
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  desc?: string;
+  teacher?: string;
+  minAtt?: number;
+  minScore?: number;
+  createdAt?: number;
+  type?: 'course' | 'subject'; // 'course' = دورة تدريبية, 'subject' = مادة دراسية
+  category?: string;
+  materials?: CourseMaterial[];
+}
+
+export interface ScientificAnswer {
+  id: string;
+  questionId: string;
+  uid: string;
+  authorName: string;
+  authorRole: Role;
+  content: string;
+  createdAt: number;
+  isVerified: boolean;
+  likes: number;
+}
+
+export interface ScientificQuestion {
+  id: string;
+  uid: string;
+  authorName: string;
+  courseId?: string;
+  courseTitle?: string;
+  title: string;
+  content: string;
+  tags?: string[];
+  createdAt: number;
+  answers: ScientificAnswer[];
+  status: 'open' | 'resolved';
+}
+
 export interface CertLayoutElement {
   on: boolean;
   x: number; // percentage 0 - 100
@@ -33,6 +118,7 @@ export interface SiteSettings {
     quiz: string;
     certs: string;
     projects: string;
+    questions?: string;
   };
   cert: {
     title: string;
@@ -42,16 +128,6 @@ export interface SiteSettings {
     role: string;
     layout: CertLayout;
   };
-}
-
-export interface Course {
-  id: string;
-  title: string;
-  desc?: string;
-  teacher?: string;
-  minAtt?: number;
-  minScore?: number;
-  createdAt?: number;
 }
 
 export interface Lesson {
@@ -148,5 +224,3 @@ export interface ProjectReview {
   at: number;
   by: string;
 }
-
-export type Role = 'owner' | 'teacher' | 'student';
