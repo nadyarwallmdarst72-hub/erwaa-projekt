@@ -23,7 +23,13 @@ import {
   X,
   Clock,
   Sparkles,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb,
+  FileCheck,
 } from 'lucide-react';
+import { LessonExercise } from '../types';
 
 interface CalendarViewProps {
   site: SiteSettings;
@@ -36,6 +42,87 @@ interface CalendarViewProps {
   onOpenLesson: (lessonId: string) => void;
   onNavigateTab: (tab: any) => void;
 }
+
+const ExerciseItemRow: React.FC<{
+  exercise: LessonExercise;
+  index: number;
+  lessonId: string;
+}> = ({ exercise, index, lessonId }) => {
+  const [completed, setCompleted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(`ex_${lessonId}_${exercise.id || index}`) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showHint, setShowHint] = useState<boolean>(false);
+
+  const toggleCompleted = () => {
+    const next = !completed;
+    setCompleted(next);
+    try {
+      localStorage.setItem(`ex_${lessonId}_${exercise.id || index}`, String(next));
+    } catch {}
+  };
+
+  return (
+    <div
+      className={`p-3 rounded-xl border transition-all text-xs ${
+        completed
+          ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
+          : 'bg-[var(--surface)] border-[var(--line)]'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2.5">
+        <label className="flex items-start gap-2.5 cursor-pointer flex-1 min-w-0">
+          <input
+            type="checkbox"
+            checked={completed}
+            onChange={toggleCompleted}
+            className="mt-0.5 w-4 h-4 rounded text-[var(--accent)] accent-[var(--accent)] cursor-pointer flex-shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-[var(--fg)] text-xs">
+                تمرين {index}: {exercise.title}
+              </span>
+              {completed && (
+                <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-semibold">
+                  مكتمل ✓
+                </span>
+              )}
+            </div>
+            {exercise.description && (
+              <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed whitespace-pre-line m-0">
+                {exercise.description}
+              </p>
+            )}
+          </div>
+        </label>
+      </div>
+
+      {exercise.solutionHint && (
+        <div className="mt-2.5 pt-2 border-t border-[var(--line)]/60">
+          <button
+            type="button"
+            onClick={() => setShowHint(!showHint)}
+            className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline"
+          >
+            <Lightbulb className="w-3.5 h-3.5" />
+            <span>{showHint ? 'إخفاء التلميح والحل' : 'إظهار التلميح أو الحل النموذجي'}</span>
+            {showHint ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {showHint && (
+            <div className="mt-2 p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed whitespace-pre-line animate-fade-in">
+              <strong className="block mb-0.5">التلميح أو الإجابة النموذجية:</strong>
+              {exercise.solutionHint}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   site,
@@ -400,9 +487,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <h4 className="font-semibold text-sm m-0 truncate text-[var(--fg)]">
                       {l.title}
                     </h4>
-                    <p className="text-xs text-[var(--muted)] m-0 truncate">
-                      {course?.title || 'عام'}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-[var(--muted)] m-0 truncate">
+                        {course?.title || 'عام'}
+                      </p>
+                      {l.exercises && l.exercises.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-semibold flex-shrink-0">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {l.exercises.length} {l.exercises.length === 1 ? 'تمرين' : 'تمارين'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <ChevronLeft className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors" />
                 </button>
@@ -524,6 +619,36 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 )}
               </div>
             )}
+
+            {/* Exercises & Practical Applications Section */}
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3.5 sm:p-4 grid gap-3 shadow-xs">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-sm font-display text-[var(--fg)] m-0 flex items-center gap-1.5">
+                  <FileCheck className="w-4 h-4 text-[var(--accent)]" />
+                  <span>تمارين وتطبيقات عملية للمحاضرة</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                    {sheetLesson.exercises?.length || 0}
+                  </span>
+                </h4>
+              </div>
+
+              {sheetLesson.exercises && sheetLesson.exercises.length > 0 ? (
+                <div className="grid gap-2.5">
+                  {sheetLesson.exercises.map((ex, idx) => (
+                    <ExerciseItemRow
+                      key={ex.id || `ex_${idx}`}
+                      exercise={ex}
+                      index={idx + 1}
+                      lessonId={sheetLesson.id}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-3 px-3 text-center text-xs text-[var(--muted)] border border-dashed border-[var(--line)] rounded-xl bg-[var(--bg)]/50">
+                  لا توجد تمارين إضافية محددة لهذه المحاضرة. ركّز على التطبيق العملي للشرح المرفق.
+                </div>
+              )}
+            </div>
 
             {/* Attendance Status Notification */}
             {isAttended(sheetLesson.id) ? (

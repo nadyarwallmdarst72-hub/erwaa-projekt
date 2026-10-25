@@ -131,6 +131,15 @@ export interface SiteSettings {
   };
 }
 
+export interface LessonExercise {
+  id: string;
+  title: string;
+  description: string;
+  solutionHint?: string;
+  dueDate?: string;
+  completed?: boolean;
+}
+
 export interface Lesson {
   id: string;
   title: string;
@@ -139,6 +148,7 @@ export interface Lesson {
   date: string; // YYYY-MM-DD
   url?: string;
   createdAt?: number;
+  exercises?: LessonExercise[];
 }
 
 export interface Question {

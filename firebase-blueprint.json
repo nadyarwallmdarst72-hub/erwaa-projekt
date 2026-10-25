@@ -52,6 +52,45 @@
         "status": { "type": "string", "enum": ["open", "resolved"], "description": "Question status" }
       },
       "required": ["id", "uid", "authorName", "title", "content", "createdAt", "status"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Courses and academic subjects",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Course ID" },
+        "title": { "type": "string", "description": "Course title" },
+        "desc": { "type": "string", "description": "Course description" },
+        "teacher": { "type": "string", "description": "Assigned teacher" },
+        "type": { "type": "string", "description": "course or subject" }
+      },
+      "required": ["id", "title"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "Lectures, dates, videos, and exercises",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Lesson ID" },
+        "title": { "type": "string", "description": "Lesson title" },
+        "courseId": { "type": "string", "description": "Course ID" },
+        "date": { "type": "string", "description": "Date YYYY-MM-DD" },
+        "url": { "type": "string", "description": "Video URL" },
+        "exercises": { "type": "array", "description": "Exercises for this lecture" }
+      },
+      "required": ["id", "title", "courseId", "date"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Tests and quizzes with multiple choice questions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Quiz ID" },
+        "title": { "type": "string", "description": "Quiz title" },
+        "courseId": { "type": "string", "description": "Course ID" },
+        "questions": { "type": "array", "description": "Questions array" }
+      },
+      "required": ["id", "title", "questions"]
     }
   },
   "firestore": {
@@ -66,6 +105,18 @@
     "/questions/{questionId}": {
       "schema": { "$ref": "#/entities/ScientificQuestion" },
       "description": "Academic forum questions and answers"
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Training courses and academic subjects"
+    },
+    "/lessons/{lessonId}": {
+      "schema": { "$ref": "#/entities/Lesson" },
+      "description": "Lectures, materials, and exercises"
+    },
+    "/quizzes/{quizId}": {
+      "schema": { "$ref": "#/entities/Quiz" },
+      "description": "Academic quizzes and tests"
     }
   }
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { SiteSettings, UserAccount, OWNER_EMAIL } from '../types';
-import { ShieldCheck, UserCheck, GraduationCap, Moon, Sun, LogIn, LogOut, Clock, Bell, UserCog } from 'lucide-react';
+import { ShieldCheck, UserCheck, GraduationCap, Moon, Sun, LogIn, LogOut, Clock, Bell, UserCog, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   site: SiteSettings;
@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenAuthModal: () => void;
   onOpenNotifications: () => void;
   onOpenEditProfile: () => void;
+  onOpenAiAssistant?: () => void;
   onLogout: () => void;
   darkTheme: boolean;
   onToggleTheme: () => void;
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuthModal,
   onOpenNotifications,
   onOpenEditProfile,
+  onOpenAiAssistant,
   onLogout,
   darkTheme,
   onToggleTheme,
@@ -110,6 +112,19 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           )}
         </button>
+
+        {/* AI Assistant (Owner & Teacher only) */}
+        {(isOwner || currentUser?.role === 'teacher') && onOpenAiAssistant && (
+          <button
+            type="button"
+            onClick={onOpenAiAssistant}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-purple-300 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition-colors shadow-xs text-xs font-bold"
+            title="المساعد الذكي (خاص بالمالك والمشرف فقط)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+            <span className="hidden md:inline">مساعد AI</span>
+          </button>
+        )}
 
         {/* User Account or Login Button */}
         {currentUser ? (

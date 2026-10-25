@@ -355,6 +355,20 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(-7),
       url: "https://www.youtube.com/watch?v=SqcY0GlETPk",
       createdAt: now - 10 * 86400000,
+      exercises: [
+        {
+          id: "ex_w1_1",
+          title: "تمرين 1: إنشاء مكون بطاقة تعريفية (Profile Card)",
+          description: "قم بإنشاء مكون React يستقبل الاسم والنبذة والصورة عبر Props مع تطبيق إطار جميل.",
+          solutionHint: "استخدم Destructuring للـ Props داخل دالة المكون واعتمد على flexbox في التنسيق.",
+        },
+        {
+          id: "ex_w1_2",
+          title: "تمرين 2: تفكيك واجهة مستخدم إلى مكونات ذرية",
+          description: "اختر أي صفحة موقع مألوفة وقم برسم شجرة المكونات وتحديد المكونات القابلة لإعادة الاستخدام.",
+          solutionHint: "حدد العناصر المتكررة كالأزرار والحقول وبطاقات العرض.",
+        },
+      ],
     },
     {
       id: "les_w2",
@@ -363,6 +377,14 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(-5),
       url: "https://www.youtube.com/watch?v=4ORZ1GmjaMc",
       createdAt: now - 8 * 86400000,
+      exercises: [
+        {
+          id: "ex_w2_1",
+          title: "تمرين 1: بناء عداد تفاعلي مع حفظ القيمة محلياً",
+          description: "ابنِ عداداً تصاعدياً وتنازلياً يقوم بحفظ قيمته تلقائياً في localStorage عند كل تغيير.",
+          solutionHint: "مرر دالة إلى useState لقراءة القيمة الأولية، واستخدم useEffect مع مصفوفة تبعيات [count].",
+        },
+      ],
     },
     {
       id: "les_w3",
@@ -371,6 +393,14 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(-2),
       url: "https://www.youtube.com/watch?v=law87GcxB0g",
       createdAt: now - 4 * 86400000,
+      exercises: [
+        {
+          id: "ex_w3_1",
+          title: "تمرين تطبيقي: جلب قائمة بيانات وتطبيق حالة التحميل والخطأ",
+          description: "قم باستدعاء واجهة برمجة تجريبية مع معالجة Loading و Error وحالة النجاح بدقة.",
+          solutionHint: "عرّف ثلاث حالات: data و loading و error داخل try...catch.",
+        },
+      ],
     },
     {
       id: "les_w4",
@@ -379,6 +409,14 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(0),
       url: "https://www.youtube.com/watch?v=pFa93Wb0i2I",
       createdAt: now - 1 * 86400000,
+      exercises: [
+        {
+          id: "ex_w4_1",
+          title: "تمرين عملي: تصميم بطاقة إحصائيات متجاوبة (Responsive Stat Card)",
+          description: "صمم بطاقة إحصائيات تحتوي على مؤشر رقمي ورسم بياني مصغر يتأقلم بالطول وبالعرض.",
+          solutionHint: "استخدم grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 ومؤشرات ملونة.",
+        },
+      ],
     },
     {
       id: "les_s1",
@@ -387,6 +425,14 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(-3),
       url: "https://www.youtube.com/watch?v=D6xkbGLQesk",
       createdAt: now - 4 * 86400000,
+      exercises: [
+        {
+          id: "ex_s1_1",
+          title: "تمرين تحليلي: حساب التعقيد الزمني لثلاث دوال برمجية",
+          description: "حلل كفاءة حلقة مكررة مفردة وحلقتين متداخلتين وحلقة تضاعف المتغير، وحدد Big-O لكل منها.",
+          solutionHint: "الحلقة المفردة O(n)، المتداخلة O(n²)، والتضاعف بالضرب O(log n).",
+        },
+      ],
     },
     {
       id: "les_s2",
@@ -395,6 +441,14 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(1),
       url: "https://www.youtube.com/watch?v=F8AbOfQwl1c",
       createdAt: now,
+      exercises: [
+        {
+          id: "ex_s2_1",
+          title: "تمرين برمجي: تنفيذ خوارزمية عكس قائمة مترابطة (Reverse Linked List)",
+          description: "اكتب دالة بلغة TypeScript لعكس مؤشرات عقد القائمة المترابطة خطياً وبذاكرة إضافية O(1).",
+          solutionHint: "حافظ على ثلاثة مؤشرات: prev و current و next أثناء المرور على العقد.",
+        },
+      ],
     },
     {
       id: "les_u1",
@@ -403,6 +457,14 @@ function generateInitialSeed(): AppStoreData {
       date: getRelativeDate(-6),
       url: "https://www.youtube.com/watch?v=c9Wg6Cb_YlU",
       createdAt: now - 9 * 86400000,
+      exercises: [
+        {
+          id: "ex_u1_1",
+          title: "تمرين عملي: تطبيق قانون فيتس (Fitts's Law) وقانون هيك",
+          description: "أعد تصميم قائمة أزرار وشريط تنقل لتقليل وقت اتخاذ القرار وتسهيل لمس الأزرار على الهواتف.",
+          solutionHint: "اجعل الأزرار الأهم أكبر حجماً وأقرب لمتناول الإبهام مع تقليل عدد الخيارات المباشرة.",
+        },
+      ],
     },
   ];
 
@@ -635,10 +697,10 @@ function generateInitialSeed(): AppStoreData {
     certificates,
     projects,
     reviews,
-    notifications,
-    questions,
-    currentUid: ownerUid,
-    currentRole: "owner",
+    notifications: [],
+    questions: [],
+    currentUid: "",
+    currentRole: "student",
     verificationCodes: {},
   };
 }
@@ -667,6 +729,9 @@ class AppStorageManager {
               accountCode: isOwner ? "erwaa" : (u.accountCode || "123456"),
             };
           });
+          // User request: When opening the website, start with no logged-in account
+          parsed.currentUid = "";
+          parsed.currentRole = "student";
           return parsed;
         }
       }
@@ -709,68 +774,66 @@ class AppStorageManager {
     };
   }
 
-  // --- Cloud Sync Mergers ---
-  public mergeCloudUsers(cloudUsers: UserAccount[]) {
+  // --- Cloud Sync Mergers (Full 2-way real-time sync with deletion propagation) ---
+  public syncCloudUsers(cloudUsers: UserAccount[]) {
     this.update((draft) => {
-      cloudUsers.forEach((cu) => {
-        const idx = draft.users.findIndex(
-          (u) => u.id === cu.id || u.email.toLowerCase() === cu.email.toLowerCase()
-        );
-        if (idx >= 0) {
-          draft.users[idx] = { ...draft.users[idx], ...cu };
-        } else {
-          draft.users.push(cu);
-        }
-
-        if (cu.role === 'student' || cu.role === 'owner') {
-          const sIdx = draft.students.findIndex(
-            (s) => s.id === cu.id || s.email?.toLowerCase() === cu.email.toLowerCase()
-          );
-          if (sIdx >= 0) {
-            draft.students[sIdx].name = cu.name;
-          } else {
-            draft.students.push({
-              id: cu.id,
-              name: cu.name,
-              email: cu.email,
-              joinedAt: cu.joinedAt,
-            });
-          }
-        }
-      });
+      if (cloudUsers.length === 0) return;
+      draft.users = cloudUsers;
+      draft.students = cloudUsers
+        .filter((u) => u.role === 'student' || u.role === 'owner')
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          joinedAt: u.joinedAt,
+        }));
 
       if (draft.currentUid) {
         const cur = draft.users.find((u) => u.id === draft.currentUid);
         if (cur) {
           draft.currentRole = cur.role;
+        } else {
+          // If current logged-in user was deleted from cloud, log out
+          draft.currentUid = '';
+          draft.currentRole = 'student';
         }
       }
     });
   }
 
-  public mergeCloudAnnouncements(cloudAnnouncements: Announcement[]) {
+  public syncCloudAnnouncements(cloudAnnouncements: Announcement[]) {
     this.update((draft) => {
-      cloudAnnouncements.forEach((ca) => {
-        const idx = draft.blocks.findIndex((b) => b.id === ca.id);
-        if (idx >= 0) {
-          draft.blocks[idx] = { ...draft.blocks[idx], ...ca };
-        } else {
-          draft.blocks.unshift(ca);
-        }
-      });
+      draft.blocks = cloudAnnouncements;
     });
   }
 
-  public mergeCloudQuestions(cloudQuestions: ScientificQuestion[]) {
+  public syncCloudQuestions(cloudQuestions: ScientificQuestion[]) {
     this.update((draft) => {
-      cloudQuestions.forEach((cq) => {
-        const idx = draft.questions.findIndex((q) => q.id === cq.id);
-        if (idx >= 0) {
-          draft.questions[idx] = { ...draft.questions[idx], ...cq };
-        } else {
-          draft.questions.unshift(cq);
-        }
-      });
+      draft.questions = cloudQuestions;
+    });
+  }
+
+  public syncCloudCourses(cloudCourses: Course[]) {
+    this.update((draft) => {
+      if (cloudCourses.length > 0) {
+        draft.courses = cloudCourses;
+      }
+    });
+  }
+
+  public syncCloudLessons(cloudLessons: Lesson[]) {
+    this.update((draft) => {
+      if (cloudLessons.length > 0) {
+        draft.lessons = cloudLessons;
+      }
+    });
+  }
+
+  public syncCloudQuizzes(cloudQuizzes: Quiz[]) {
+    this.update((draft) => {
+      if (cloudQuizzes.length > 0) {
+        draft.quizzes = cloudQuizzes;
+      }
     });
   }
 

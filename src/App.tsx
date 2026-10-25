@@ -12,6 +12,7 @@ import {
   SiteSettings,
   Course,
   Lesson,
+  LessonExercise,
   Quiz,
   Announcement,
   Project,
@@ -33,6 +34,12 @@ import {
   deleteAnnouncementFromCloud,
   saveQuestionToCloud,
   deleteQuestionFromCloud,
+  saveCourseToCloud,
+  deleteCourseFromCloud,
+  saveLessonToCloud,
+  deleteLessonFromCloud,
+  saveQuizToCloud,
+  deleteQuizFromCloud,
 } from './services/cloudSync';
 import { Header } from './components/Header';
 import { TabsNav, MainTabKey } from './components/TabsNav';
@@ -46,6 +53,8 @@ import { AdminPanel } from './components/AdminPanel';
 import { AuthModal } from './components/AuthModal';
 import { NotificationsModal } from './components/NotificationsModal';
 import { EditProfileModal } from './components/EditProfileModal';
+import { ImportExcelModal } from './components/ImportExcelModal';
+import { AiStaffAssistantModal } from './components/AiStaffAssistantModal';
 import { Clock, ShieldAlert, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -68,6 +77,8 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isImportExcelOpen, setIsImportExcelOpen] = useState(false);
+  const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
 
   const [darkTheme, setDarkTheme] = useState<boolean>(() => {
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -486,17 +497,19 @@ export default function App() {
     );
   };
 
-  // Course, lesson, quiz, block handlers
+  // Course, lesson, quiz, block handlers with full 2-way cloud synchronization
   const handleSaveCourse = (courseData: Partial<Course>, id?: string) => {
+    let savedCourse: Course | null = null;
     appStorage.update((draft) => {
       if (id) {
         const idx = draft.courses.findIndex((c) => c.id === id);
         if (idx >= 0) {
           draft.courses[idx] = { ...draft.courses[idx], ...courseData };
+          savedCourse = draft.courses[idx];
         }
       } else {
         const newId = `course_${Date.now()}`;
-        draft.courses.push({
+        const newCourse: Course = {
           id: newId,
           title: courseData.title || '',
           desc: courseData.desc || '',
@@ -507,76 +520,222 @@ export default function App() {
           category: courseData.category || '',
           materials: [],
           createdAt: Date.now(),
-        });
+        };
+        draft.courses.push(newCourse);
+        savedCourse = newCourse;
       }
     });
-    showToast(id ? 'تم تعديل المقرر' : 'تمت إضافة المقرر بنجاح');
+    if (savedCourse) {
+      saveCourseToCloud(savedCourse);
+    }
+    showToast(id ? 'تم تعديل المقرر ومزامنته سحابياً' : 'تمت إضافة المقرر ونشره سحابياً بنجاح');
   };
 
   const handleDeleteCourse = (id: string) => {
     appStorage.update((draft) => {
       draft.courses = draft.courses.filter((c) => c.id !== id);
     });
-    showToast('تم حذف المقرر');
+    deleteCourseFromCloud(id);
+    showToast('تم حذف المقرر ونشر الحذف سحابياً لكافة الأجهزة');
   };
 
   const handleSaveLesson = (lessonData: Partial<Lesson>, id?: string) => {
+    let savedLesson: Lesson | null = null;
     appStorage.update((draft) => {
       if (id) {
         const idx = draft.lessons.findIndex((l) => l.id === id);
         if (idx >= 0) {
           draft.lessons[idx] = { ...draft.lessons[idx], ...lessonData };
+          savedLesson = draft.lessons[idx];
         }
       } else {
         const newId = `les_${Date.now()}`;
-        draft.lessons.push({
+        const newLesson: Lesson = {
           id: newId,
           title: lessonData.title || '',
-          courseId: lessonData.courseId || '',
+          courseId: lessonData.courseId || store.courses[0]?.id || '',
           date: lessonData.date || formatDateKey(new Date()),
           url: lessonData.url || '',
+          exercises: lessonData.exercises || [],
           createdAt: Date.now(),
-        });
+        };
+        draft.lessons.push(newLesson);
+        savedLesson = newLesson;
       }
     });
-    showToast(id ? 'تم تعديل الدرس' : 'تمت إضافة الدرس بنجاح');
+    if (savedLesson) {
+      saveLessonToCloud(savedLesson);
+    }
+    showToast(id ? 'تم تعديل الدرس وتمارينه سحابياً' : 'تمت إضافة المحاضرة وتمارينها سحابياً');
   };
 
   const handleDeleteLesson = (id: string) => {
     appStorage.update((draft) => {
       draft.lessons = draft.lessons.filter((l) => l.id !== id);
     });
-    showToast('تم حذف الدرس');
+    deleteLessonFromCloud(id);
+    showToast('تم حذف المحاضرة ونشر الحذف سحابياً');
   };
 
   const handleSaveQuiz = (quizData: Partial<Quiz>, id?: string) => {
+    let savedQuiz: Quiz | null = null;
     appStorage.update((draft) => {
       if (id) {
         const idx = draft.quizzes.findIndex((q) => q.id === id);
         if (idx >= 0) {
           draft.quizzes[idx] = { ...draft.quizzes[idx], ...quizData };
+          savedQuiz = draft.quizzes[idx];
         }
       } else {
         const newId = `quiz_${Date.now()}`;
-        draft.quizzes.push({
+        const newQuiz: Quiz = {
           id: newId,
           title: quizData.title || '',
-          courseId: quizData.courseId || '',
+          courseId: quizData.courseId || store.courses[0]?.id || '',
           minutes: quizData.minutes || 0,
           single: !!quizData.single,
           questions: quizData.questions || [],
           createdAt: Date.now(),
-        });
+        };
+        draft.quizzes.push(newQuiz);
+        savedQuiz = newQuiz;
       }
     });
-    showToast(id ? 'تم تعديل الاختبار' : 'تم نشر الاختبار بنجاح');
+    if (savedQuiz) {
+      saveQuizToCloud(savedQuiz);
+    }
+    showToast(id ? 'تم تعديل الاختبار ومزامنته سحابياً' : 'تم نشر الاختبار سحابياً بنجاح');
   };
 
   const handleDeleteQuiz = (id: string) => {
     appStorage.update((draft) => {
       draft.quizzes = draft.quizzes.filter((q) => q.id !== id);
     });
-    showToast('تم حذف الاختبار');
+    deleteQuizFromCloud(id);
+    showToast('تم حذف الاختبار ونشر الحذف سحابياً');
+  };
+
+  // Bulk Import Handlers (Excel / Google Sheets) with Cloud Sync
+  const handleImportStudents = (newStudents: Partial<UserAccount>[]) => {
+    let count = 0;
+    newStudents.forEach((s) => {
+      if (!s.name) return;
+      const email =
+        s.email?.toLowerCase().trim() ||
+        `st_${Date.now()}_${Math.random().toString(36).substring(2, 6)}@platform.edu`;
+      const existing = store.users.find((u) => u.email.toLowerCase() === email);
+      if (!existing) {
+        const newUser: UserAccount = {
+          id: `u_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          name: s.name.trim(),
+          email,
+          accountCode: s.accountCode?.trim() || '123456',
+          role: s.role || 'student',
+          status: s.status || 'active',
+          joinedAt: Date.now(),
+        };
+        appStorage.update((draft) => {
+          draft.users.push(newUser);
+          draft.students.push({
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email,
+            joinedAt: newUser.joinedAt,
+          });
+        });
+        saveUserToCloud(newUser);
+        count++;
+      }
+    });
+    showToast(`تم استيراد ${count} طالب وحفظهم سحابياً بنجاح!`);
+  };
+
+  const handleImportCourses = (newCourses: Partial<Course>[]) => {
+    let count = 0;
+    newCourses.forEach((c) => {
+      if (!c.title) return;
+      const newCourse: Course = {
+        id: `course_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        title: c.title.trim(),
+        desc: c.desc || '',
+        teacher: c.teacher || '',
+        minAtt: c.minAtt || 80,
+        minScore: c.minScore || 60,
+        type: c.type || 'course',
+        category: c.category || '',
+        materials: [],
+        createdAt: Date.now(),
+      };
+      appStorage.update((draft) => {
+        draft.courses.push(newCourse);
+      });
+      saveCourseToCloud(newCourse);
+      count++;
+    });
+    showToast(`تم استيراد ${count} مقرر ومزامنته سحابياً بنجاح!`);
+  };
+
+  const handleImportLessons = (newLessons: Partial<Lesson>[]) => {
+    let count = 0;
+    newLessons.forEach((l) => {
+      if (!l.title) return;
+      const newLesson: Lesson = {
+        id: `les_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        title: l.title.trim(),
+        courseId: l.courseId || store.courses[0]?.id || '',
+        date: l.date || formatDateKey(new Date()),
+        url: l.url || '',
+        exercises: l.exercises || [],
+        createdAt: Date.now(),
+      };
+      appStorage.update((draft) => {
+        draft.lessons.push(newLesson);
+      });
+      saveLessonToCloud(newLesson);
+      count++;
+    });
+    showToast(`تم استيراد ${count} محاضرة ومزامنتها سحابياً بنجاح!`);
+  };
+
+  const handleImportQuizzes = (newQuizzes: Partial<Quiz>[]) => {
+    let count = 0;
+    newQuizzes.forEach((q) => {
+      if (!q.title) return;
+      const newQuiz: Quiz = {
+        id: `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        title: q.title.trim(),
+        courseId: q.courseId || store.courses[0]?.id || '',
+        minutes: q.minutes || 10,
+        single: !!q.single,
+        questions: q.questions || [],
+        createdAt: Date.now(),
+      };
+      appStorage.update((draft) => {
+        draft.quizzes.push(newQuiz);
+      });
+      saveQuizToCloud(newQuiz);
+      count++;
+    });
+    showToast(`تم استيراد ${count} اختبار ومزامنته سحابياً بنجاح!`);
+  };
+
+  // AI Assistant Handlers for Staff
+  const handleAddExercisesToLesson = (lessonId: string, exercises: LessonExercise[]) => {
+    let targetLesson: Lesson | null = null;
+    appStorage.update((draft) => {
+      const idx = draft.lessons.findIndex((l) => l.id === lessonId);
+      if (idx >= 0) {
+        draft.lessons[idx].exercises = [
+          ...(draft.lessons[idx].exercises || []),
+          ...exercises,
+        ];
+        targetLesson = draft.lessons[idx];
+      }
+    });
+    if (targetLesson) {
+      saveLessonToCloud(targetLesson);
+    }
+    showToast('تمت إضافة التمارين للمحاضرة وتوزيعها سحابياً بنجاح!');
   };
 
   const handleSaveBlock = (blockData: Partial<Announcement>, id?: string) => {
@@ -653,6 +812,7 @@ export default function App() {
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
           onOpenEditProfile={() => setIsEditProfileOpen(true)}
+          onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
           onLogout={handleLogout}
           darkTheme={darkTheme}
           onToggleTheme={handleToggleTheme}
@@ -822,6 +982,8 @@ export default function App() {
               onDeleteUser={handleDeleteUser}
               onPromoteUser={handlePromoteUser}
               onResetAllData={handleResetAllData}
+              onOpenImportExcel={() => setIsImportExcelOpen(true)}
+              onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
             />
           )}
         </main>
@@ -880,6 +1042,28 @@ export default function App() {
           onUpdateProfile={handleUpdateProfile}
         />
       )}
+
+      {/* Excel / Google Sheets Import Modal */}
+      <ImportExcelModal
+        isOpen={isImportExcelOpen}
+        onClose={() => setIsImportExcelOpen(false)}
+        courses={store.courses}
+        onImportStudents={handleImportStudents}
+        onImportCourses={handleImportCourses}
+        onImportLessons={handleImportLessons}
+        onImportQuizzes={handleImportQuizzes}
+      />
+
+      {/* AI Assistant Modal for Staff (Owner & Teacher) */}
+      <AiStaffAssistantModal
+        isOpen={isAiAssistantOpen}
+        onClose={() => setIsAiAssistantOpen(false)}
+        role={store.currentRole}
+        courses={store.courses}
+        lessons={store.lessons}
+        onAddExercisesToLesson={handleAddExercisesToLesson}
+        onAddAnnouncement={(title, text) => handleSaveBlock({ title, text })}
+      />
     </div>
   );
 }

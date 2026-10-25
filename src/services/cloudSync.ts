@@ -8,7 +8,16 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db, testConnection, handleFirestoreError, OperationType } from '../firebase';
-import { UserAccount, Announcement, ScientificQuestion, UserStatus, Role } from '../types';
+import {
+  UserAccount,
+  Announcement,
+  ScientificQuestion,
+  Course,
+  Lesson,
+  Quiz,
+  UserStatus,
+  Role,
+} from '../types';
 import { appStorage } from '../storage';
 
 let isSyncInitialized = false;
@@ -28,23 +37,21 @@ export async function initCloudSync(
       onStatusChange?.('connected');
     }
 
-    // 1. Synchronize Users Collection in Real Time
-    const usersCol = collection(db, 'users');
+    const localSnapshot = appStorage.getSnapshot();
 
-    // First check if cloud users is empty, if so, seed initial users from local storage
+    // 1. Synchronize Users Collection
+    const usersCol = collection(db, 'users');
     try {
-      const existingSnap = await getDocs(usersCol);
-      if (existingSnap.empty) {
-        const localSnapshot = appStorage.getSnapshot();
+      const usersSnap = await getDocs(usersCol);
+      if (usersSnap.empty && localSnapshot.users.length > 0) {
         for (const u of localSnapshot.users) {
           await setDoc(doc(db, 'users', u.id), u);
         }
       }
     } catch (e) {
-      console.warn('Initial seed check error:', e);
+      console.warn('Initial users seed check error:', e);
     }
 
-    // Real-time listener for users / admissions
     onSnapshot(
       usersCol,
       (snapshot) => {
@@ -52,9 +59,8 @@ export async function initCloudSync(
         snapshot.forEach((docSnap) => {
           cloudUsers.push(docSnap.data() as UserAccount);
         });
-
         if (cloudUsers.length > 0) {
-          appStorage.mergeCloudUsers(cloudUsers);
+          appStorage.syncCloudUsers(cloudUsers);
         }
         onStatusChange?.('connected');
       },
@@ -64,8 +70,106 @@ export async function initCloudSync(
       }
     );
 
-    // 2. Synchronize Announcements Collection in Real Time
+    // 2. Synchronize Courses Collection
+    const coursesCol = collection(db, 'courses');
+    try {
+      const coursesSnap = await getDocs(coursesCol);
+      if (coursesSnap.empty && localSnapshot.courses.length > 0) {
+        for (const c of localSnapshot.courses) {
+          await setDoc(doc(db, 'courses', c.id), c);
+        }
+      }
+    } catch (e) {
+      console.warn('Initial courses seed check error:', e);
+    }
+
+    onSnapshot(
+      coursesCol,
+      (snapshot) => {
+        const cloudCourses: Course[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudCourses.push(docSnap.data() as Course);
+        });
+        if (cloudCourses.length > 0) {
+          appStorage.syncCloudCourses(cloudCourses);
+        }
+      },
+      (error) => {
+        console.warn('Courses sync error:', error);
+      }
+    );
+
+    // 3. Synchronize Lessons Collection (with exercises)
+    const lessonsCol = collection(db, 'lessons');
+    try {
+      const lessonsSnap = await getDocs(lessonsCol);
+      if (lessonsSnap.empty && localSnapshot.lessons.length > 0) {
+        for (const l of localSnapshot.lessons) {
+          await setDoc(doc(db, 'lessons', l.id), l);
+        }
+      }
+    } catch (e) {
+      console.warn('Initial lessons seed check error:', e);
+    }
+
+    onSnapshot(
+      lessonsCol,
+      (snapshot) => {
+        const cloudLessons: Lesson[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudLessons.push(docSnap.data() as Lesson);
+        });
+        if (cloudLessons.length > 0) {
+          appStorage.syncCloudLessons(cloudLessons);
+        }
+      },
+      (error) => {
+        console.warn('Lessons sync error:', error);
+      }
+    );
+
+    // 4. Synchronize Quizzes Collection
+    const quizzesCol = collection(db, 'quizzes');
+    try {
+      const quizzesSnap = await getDocs(quizzesCol);
+      if (quizzesSnap.empty && localSnapshot.quizzes.length > 0) {
+        for (const q of localSnapshot.quizzes) {
+          await setDoc(doc(db, 'quizzes', q.id), q);
+        }
+      }
+    } catch (e) {
+      console.warn('Initial quizzes seed check error:', e);
+    }
+
+    onSnapshot(
+      quizzesCol,
+      (snapshot) => {
+        const cloudQuizzes: Quiz[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudQuizzes.push(docSnap.data() as Quiz);
+        });
+        if (cloudQuizzes.length > 0) {
+          appStorage.syncCloudQuizzes(cloudQuizzes);
+        }
+      },
+      (error) => {
+        console.warn('Quizzes sync error:', error);
+      }
+    );
+
+    // 5. Synchronize Announcements Collection
     const announcementsCol = collection(db, 'announcements');
+    try {
+      const announcementsSnap = await getDocs(announcementsCol);
+      if (announcementsSnap.empty && localSnapshot.blocks.length > 0) {
+        for (const b of localSnapshot.blocks) {
+          await setDoc(doc(db, 'announcements', b.id), b);
+        }
+      }
+    } catch (e) {
+      console.warn('Initial announcements seed check error:', e);
+    }
+
     onSnapshot(
       announcementsCol,
       (snapshot) => {
@@ -73,9 +177,8 @@ export async function initCloudSync(
         snapshot.forEach((docSnap) => {
           cloudAnnouncements.push(docSnap.data() as Announcement);
         });
-
         if (cloudAnnouncements.length > 0) {
-          appStorage.mergeCloudAnnouncements(cloudAnnouncements);
+          appStorage.syncCloudAnnouncements(cloudAnnouncements);
         }
       },
       (error) => {
@@ -83,8 +186,19 @@ export async function initCloudSync(
       }
     );
 
-    // 3. Synchronize Scientific Questions in Real Time
+    // 6. Synchronize Scientific Questions
     const questionsCol = collection(db, 'questions');
+    try {
+      const questionsSnap = await getDocs(questionsCol);
+      if (questionsSnap.empty && localSnapshot.questions.length > 0) {
+        for (const q of localSnapshot.questions) {
+          await setDoc(doc(db, 'questions', q.id), q);
+        }
+      }
+    } catch (e) {
+      console.warn('Initial questions seed check error:', e);
+    }
+
     onSnapshot(
       questionsCol,
       (snapshot) => {
@@ -92,9 +206,8 @@ export async function initCloudSync(
         snapshot.forEach((docSnap) => {
           cloudQuestions.push(docSnap.data() as ScientificQuestion);
         });
-
         if (cloudQuestions.length > 0) {
-          appStorage.mergeCloudQuestions(cloudQuestions);
+          appStorage.syncCloudQuestions(cloudQuestions);
         }
       },
       (error) => {
@@ -107,7 +220,8 @@ export async function initCloudSync(
   }
 }
 
-// Cloud Mutation Operations
+// --- Cloud Mutation Operations (Add, Update, Delete with immediate propagation) ---
+
 export async function saveUserToCloud(user: UserAccount): Promise<void> {
   try {
     await setDoc(doc(db, 'users', user.id), user, { merge: true });
@@ -177,5 +291,53 @@ export async function deleteQuestionFromCloud(id: string): Promise<void> {
     await deleteDoc(doc(db, 'questions', id));
   } catch (error) {
     console.error('Failed to delete question from cloud:', error);
+  }
+}
+
+export async function saveCourseToCloud(course: Course): Promise<void> {
+  try {
+    await setDoc(doc(db, 'courses', course.id), course, { merge: true });
+  } catch (error) {
+    console.error('Failed to save course to cloud:', error);
+  }
+}
+
+export async function deleteCourseFromCloud(courseId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'courses', courseId));
+  } catch (error) {
+    console.error('Failed to delete course from cloud:', error);
+  }
+}
+
+export async function saveLessonToCloud(lesson: Lesson): Promise<void> {
+  try {
+    await setDoc(doc(db, 'lessons', lesson.id), lesson, { merge: true });
+  } catch (error) {
+    console.error('Failed to save lesson to cloud:', error);
+  }
+}
+
+export async function deleteLessonFromCloud(lessonId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'lessons', lessonId));
+  } catch (error) {
+    console.error('Failed to delete lesson from cloud:', error);
+  }
+}
+
+export async function saveQuizToCloud(quiz: Quiz): Promise<void> {
+  try {
+    await setDoc(doc(db, 'quizzes', quiz.id), quiz, { merge: true });
+  } catch (error) {
+    console.error('Failed to save quiz to cloud:', error);
+  }
+}
+
+export async function deleteQuizFromCloud(quizId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'quizzes', quizId));
+  } catch (error) {
+    console.error('Failed to delete quiz from cloud:', error);
   }
 }

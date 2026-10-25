@@ -16,6 +16,7 @@ import {
   CertLayout,
   UserAccount,
   OWNER_EMAIL,
+  LessonExercise,
 } from '../types';
 import {
   formatDateKey,
@@ -52,6 +53,11 @@ import {
   AlertCircle,
   GraduationCap,
   Clock,
+  FileSpreadsheet,
+  Sparkles,
+  Plus,
+  Lightbulb,
+  FileCheck,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -90,6 +96,8 @@ interface AdminPanelProps {
   onDeleteUser: (uid: string) => void;
   onPromoteUser: (uid: string, newRole: Role) => void;
   onResetAllData: () => void;
+  onOpenImportExcel?: () => void;
+  onOpenAiAssistant?: () => void;
 }
 
 type AdminTab =
@@ -159,6 +167,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteUser,
   onPromoteUser,
   onResetAllData,
+  onOpenImportExcel,
+  onOpenAiAssistant,
 }) => {
   const isOwner = role === 'owner' || currentUserEmail?.toLowerCase() === OWNER_EMAIL.toLowerCase();
   const [activeTab, setActiveTab] = useState<AdminTab>(isOwner ? 'users' : 'students');
@@ -188,6 +198,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [lCourseId, setLCourseId] = useState(courses[0]?.id || '');
   const [lDate, setLDate] = useState(formatDateKey(new Date()));
   const [lUrl, setLUrl] = useState('');
+  const [lExercises, setLExercises] = useState<LessonExercise[]>([]);
 
   // Announcement Form
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
@@ -484,6 +495,43 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           )}
         </div>
       )}
+
+      {/* Quick Staff Cloud Tools Banner: Excel/Sheets Import & AI Assistant */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-[var(--fg)] flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
+            أدوات الإدارة السحابية والذكاء الاصطناعي:
+          </span>
+          <span className="text-[11px] text-[var(--muted)] hidden sm:inline">
+            استيراد بيانات جماعية من إكسل أو توليد محتوى ذكي
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {onOpenImportExcel && (
+            <button
+              type="button"
+              onClick={onOpenImportExcel}
+              className="px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors flex items-center gap-1.5 shadow-xs"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>استيراد من إكسل / شيت</span>
+            </button>
+          )}
+
+          {onOpenAiAssistant && (
+            <button
+              type="button"
+              onClick={onOpenAiAssistant}
+              className="px-3 py-1.5 rounded-xl border border-purple-300 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-200 text-xs font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors flex items-center gap-1.5 shadow-xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-600 animate-pulse" />
+              <span>مساعد الذكاء الاصطناعي</span>
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Sub-tabs pills */}
       <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-[var(--surface)] border border-[var(--line)] shadow-xs overflow-x-auto no-scrollbar md:flex-wrap">
@@ -1284,6 +1332,119 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </label>
             </div>
 
+            {/* Exercises Field for this Lecture */}
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3.5 grid gap-2.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-[var(--accent)]" />
+                  <span className="text-xs font-bold text-[var(--fg)]">
+                    تمارين وتطبيقات المحاضرة ({lExercises.length})
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {onOpenAiAssistant && (
+                    <button
+                      type="button"
+                      onClick={onOpenAiAssistant}
+                      className="px-2.5 py-1 rounded-lg border border-purple-300 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-[11px] font-bold hover:bg-purple-100 flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3 text-purple-600" />
+                      <span>توليد بالذكاء الاصطناعي</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLExercises((prev) => [
+                        ...prev,
+                        {
+                          id: `ex_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+                          title: '',
+                          description: '',
+                          solutionHint: '',
+                        },
+                      ]);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] text-[11px] font-bold hover:bg-[var(--accent)] hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>إضافة تمرين</span>
+                  </button>
+                </div>
+              </div>
+
+              {lExercises.length === 0 ? (
+                <p className="text-[11px] text-[var(--muted)] m-0 text-center py-2 border border-dashed border-[var(--line)] rounded-lg">
+                  لا توجد تمارين مضافة لهذه المحاضرة بعد. انقر على «إضافة تمرين» أو استخدم المساعد الذكي.
+                </p>
+              ) : (
+                <div className="grid gap-2">
+                  {lExercises.map((ex, idx) => (
+                    <div
+                      key={ex.id || idx}
+                      className="p-2.5 rounded-lg border border-[var(--line)] bg-[var(--surface)] grid gap-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-[var(--fg)]">
+                          تمرين #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLExercises((prev) => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="text-rose-500 hover:text-rose-700 p-1"
+                          title="حذف هذا التمرين"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={ex.title}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLExercises((prev) =>
+                            prev.map((item, i) => (i === idx ? { ...item, title: val } : item))
+                          );
+                        }}
+                        placeholder="عنوان التمرين (مثال: تطبيق عملي على بناء النموذج)"
+                        className="px-3 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                        required
+                      />
+
+                      <textarea
+                        value={ex.description}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLExercises((prev) =>
+                            prev.map((item, i) => (i === idx ? { ...item, description: val } : item))
+                          );
+                        }}
+                        placeholder="تفاصيل ونص التمرين المطلوب من الطالب..."
+                        rows={2}
+                        className="px-3 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                      />
+
+                      <input
+                        type="text"
+                        value={ex.solutionHint || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLExercises((prev) =>
+                            prev.map((item, i) => (i === idx ? { ...item, solutionHint: val } : item))
+                          );
+                        }}
+                        placeholder="تلميح أو إجابة نموذجية (اختياري، يظهر للطالب عند النقر)"
+                        className="px-3 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--bg)] text-[11px] text-[var(--fg)]"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 pt-1">
               <button
                 type="submit"
@@ -1299,6 +1460,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     setEditingLessonId(null);
                     setLTitle('');
                     setLUrl('');
+                    setLExercises([]);
                   }}
                   className="px-3 py-2 rounded-xl border border-[var(--line)] text-xs font-semibold text-[var(--muted)]"
                 >
@@ -1319,9 +1481,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div key={l.id} className="p-4 flex items-center justify-between gap-3">
                     <div>
                       <h4 className="font-bold text-sm text-[var(--fg)] m-0">{l.title}</h4>
-                      <p className="text-xs text-[var(--muted)] m-0 mt-0.5">
-                        {c?.title || 'عام'} · التاريخ: {formatLongDate(l.date)}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <p className="text-xs text-[var(--muted)] m-0">
+                          {c?.title || 'عام'} · التاريخ: {formatLongDate(l.date)}
+                        </p>
+                        {l.exercises && l.exercises.length > 0 && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md bg-[var(--accent-soft)] text-[var(--accent)] text-[10px] font-semibold">
+                            <FileCheck className="w-3 h-3" />
+                            {l.exercises.length} {l.exercises.length === 1 ? 'تمرين' : 'تمارين'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1332,6 +1502,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           setLCourseId(l.courseId);
                           setLDate(l.date);
                           setLUrl(l.url || '');
+                          setLExercises(l.exercises ? [...l.exercises] : []);
                         }}
                         className="p-1.5 rounded-lg text-xs font-semibold text-[var(--muted)] hover:text-[var(--accent)]"
                       >

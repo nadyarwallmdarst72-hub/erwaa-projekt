@@ -27,6 +27,24 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Courses & Subjects
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Lessons & Lectures (including exercises)
+    match /lessons/{lessonId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Quizzes & Tests
+    match /quizzes/{quizId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Global default deny
     match /{document=**} {
       allow read, write: if false;
