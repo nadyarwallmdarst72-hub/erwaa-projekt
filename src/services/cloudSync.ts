@@ -6,6 +6,7 @@ import {
   deleteDoc,
   onSnapshot,
   getDocs,
+  getDoc,
 } from 'firebase/firestore';
 import { db, testConnection, handleFirestoreError, OperationType } from '../firebase';
 import {
@@ -15,6 +16,7 @@ import {
   Course,
   Lesson,
   Quiz,
+  SiteSettings,
   UserStatus,
   Role,
 } from '../types';
@@ -38,6 +40,50 @@ export async function initCloudSync(
     }
 
     const localSnapshot = appStorage.getSnapshot();
+
+    // 0. Synchronize Site Identity & General Settings in Real-Time
+    const settingsDocRef = doc(db, 'settings', 'general');
+    try {
+      const settingsSnap = await getDoc(settingsDocRef);
+      if (!settingsSnap.exists() && localSnapshot.site) {
+        await setDoc(settingsDocRef, {
+          site: localSnapshot.site,
+          ...localSnapshot.site,
+          certBg: localSnapshot.certBg || '',
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (e) {
+      console.warn('Initial settings seed check error:', e);
+    }
+
+    onSnapshot(
+      settingsDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data) {
+            const cloudSite: Partial<SiteSettings> = data.site || {
+              name: data.name,
+              tagline: data.tagline,
+              desc: data.desc,
+              logo: data.logo,
+              accent: data.accent,
+              fontHead: data.fontHead,
+              fontBody: data.fontBody,
+              heroBadge: data.heroBadge,
+              heroTitle: data.heroTitle,
+              heroSub: data.heroSub,
+              footer: data.footer,
+            };
+            appStorage.syncCloudSiteSettings(cloudSite, data.certBg);
+          }
+        }
+      },
+      (error) => {
+        console.warn('Real-time settings sync error:', error);
+      }
+    );
 
     // 1. Synchronize Users Collection
     const usersCol = collection(db, 'users');
@@ -339,5 +385,23 @@ export async function deleteQuizFromCloud(quizId: string): Promise<void> {
     await deleteDoc(doc(db, 'quizzes', quizId));
   } catch (error) {
     console.error('Failed to delete quiz from cloud:', error);
+  }
+}
+
+export async function saveSiteSettingsToCloud(site: SiteSettings, certBg?: string): Promise<void> {
+  try {
+    const settingsDocRef = doc(db, 'settings', 'general');
+    await setDoc(
+      settingsDocRef,
+      {
+        site,
+        ...site,
+        certBg: certBg !== undefined ? certBg : '',
+        updatedAt: Date.now(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error('Failed to save site settings to cloud:', error);
   }
 }

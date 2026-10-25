@@ -837,6 +837,15 @@ class AppStorageManager {
     });
   }
 
+  public syncCloudSiteSettings(siteSettings: Partial<SiteSettings>, certBg?: string) {
+    this.update((draft) => {
+      draft.site = { ...draft.site, ...siteSettings };
+      if (certBg !== undefined && certBg !== null) {
+        draft.certBg = certBg;
+      }
+    });
+  }
+
   // --- Profile Edit ---
   public updateProfile(uid: string, updates: Partial<UserAccount>) {
     this.update((draft) => {

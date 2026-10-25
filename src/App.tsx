@@ -40,6 +40,7 @@ import {
   deleteLessonFromCloud,
   saveQuizToCloud,
   deleteQuizFromCloud,
+  saveSiteSettingsToCloud,
 } from './services/cloudSync';
 import { Header } from './components/Header';
 import { TabsNav, MainTabKey } from './components/TabsNav';
@@ -787,13 +788,16 @@ export default function App() {
     appStorage.update((draft) => {
       draft.site = newSite;
     });
-    showToast('تم تحديث هوية المنصة وإعداداتها بنجاح');
+    saveSiteSettingsToCloud(newSite, store.certBg);
+    showToast('تم حفظ وتحديث هوية المنصة سحابياً ومزامنتها لحظياً لجميع الأجهزة!');
   };
 
   const handleUpdateCertBg = (bgDataUrl: string) => {
     appStorage.update((draft) => {
       draft.certBg = bgDataUrl;
     });
+    saveSiteSettingsToCloud(store.site, bgDataUrl);
+    showToast('تم حفظ خلفية الشهادة سحابياً بنجاح.');
   };
 
   const handleResetAllData = () => {

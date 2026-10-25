@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import type { Request, Response } from 'express';
 import path from 'path';
@@ -12,20 +13,26 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Initialize GoogleGenAI SDK per gemini-api guidelines
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Helper to get GoogleGenAI client with current API key
+function getGeminiClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 // AI Assistant Endpoint for Owner & Supervisors only
 app.post('/api/gemini/assist', async (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
   try {
-    const { prompt, role, mode, context } = req.body;
+    const { prompt, role, mode, context } = req.body || {};
 
     // Verify staff access (owner or supervisor/teacher only)
     if (role !== 'owner' && role !== 'teacher') {
@@ -33,8 +40,16 @@ app.post('/api/gemini/assist', async (req: Request, res: Response) => {
       return;
     }
 
+    const ai = getGeminiClient();
+    if (!ai) {
+      res.status(503).json({
+        error: 'مفتاح Google Gemini API غير متوفر في متغيرات البيئة (GEMINI_API_KEY). يرجى إضافة المفتاح في إعدادات المنصة.',
+      });
+      return;
+    }
+
     if (!prompt && !context) {
-      res.status(400).json({ error: 'الرجاء إرسال نص الاستفسار أو تفاصيل المحتوى.' });
+      res.status(400).json({ error: 'الرجاء إرسال نص الاستفسار أو تفاصيل المحتوى المطلوب توليده.' });
       return;
     }
 
@@ -70,9 +85,33 @@ app.post('/api/gemini/assist', async (req: Request, res: Response) => {
     res.json({ success: true, reply });
   } catch (error: any) {
     console.error('Gemini Assist Error:', error);
-    res.status(500).json({
-      error: 'حدث خطأ أثناء معالجة طلب الذكاء الاصطناعي: ' + (error?.message || 'خطأ غير معروف'),
-    });
+    let rawMsg = error?.message || '';
+
+    // If message is a JSON string, extract the inner message
+    try {
+      if (rawMsg.startsWith('{') && rawMsg.endsWith('}')) {
+        const parsed = JSON.parse(rawMsg);
+        if (parsed?.error?.message) {
+          rawMsg = parsed.error.message;
+        }
+      }
+    } catch {}
+
+    let errorMessage = 'حدث خطأ أثناء معالجة طلب الذكاء الاصطناعي.';
+
+    if (rawMsg.includes('API_KEY_INVALID') || rawMsg.includes('API key not valid')) {
+      errorMessage = 'مفتاح Google Gemini API غير صالح. يرجى التحقق من صحة المفتاح في إعدادات المنصة.';
+    } else if (rawMsg.includes('RESOURCE_EXHAUSTED') || rawMsg.includes('Quota exceeded') || rawMsg.includes('429')) {
+      errorMessage = 'تم تجاوز الحد المسموح به للاستخدام أو نفاد الرصيد المخصص لمفتاح Gemini API. يرجى مراجعة رصيد الحساب أو المحاولة لاحقاً.';
+    } else if (rawMsg.includes('high demand') || rawMsg.includes('UNAVAILABLE') || rawMsg.includes('503')) {
+      errorMessage = 'نموذج الذكاء الاصطناعي يواجه ضغطاً مؤقتاً في الطلبات حالياً. يرجى إعادة المحاولة بعد ثوانٍ قليلة.';
+    } else if (rawMsg.includes('SAFETY') || rawMsg.includes('blocked')) {
+      errorMessage = 'تم حجب الرد من قبل معايير الأمان وملاءمة المحتوى.';
+    } else if (rawMsg) {
+      errorMessage = `تنبيه من خدمة الذكاء الاصطناعي: ${rawMsg}`;
+    }
+
+    res.status(500).json({ error: errorMessage });
   }
 });
 

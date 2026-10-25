@@ -93,23 +93,60 @@ export const AiStaffAssistantModal: React.FC<AiStaffAssistantModalProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           role,
-          mode: mode === 'exercises' ? 'generate_exercises' : mode === 'quiz' ? 'generate_quiz' : mode === 'announcement' ? 'draft_announcement' : 'general_assistant',
+          mode:
+            mode === 'exercises'
+              ? 'generate_exercises'
+              : mode === 'quiz'
+              ? 'generate_quiz'
+              : mode === 'announcement'
+              ? 'draft_announcement'
+              : 'general_assistant',
           prompt: promptToSend,
           context: contextPayload,
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'فشل الاتصال بخدمة الذكاء الاصطناعي');
+      // Verify response content-type to prevent JSON parsing crashes on HTML error pages
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const rawText = await res.text().catch(() => '');
+        console.error('Non-JSON response received from AI server:', res.status, rawText);
+
+        if (res.status === 404) {
+          throw new Error('خدمة الذكاء الاصطناعي غير متوفرة حالياً (404 Not Found). يرجى التأكد من تشغيل الخادم.');
+        } else if (res.status === 502 || res.status === 503 || res.status === 504) {
+          throw new Error('خدمة المساعد الأكاديمي غير متاحة مؤقتاً بسبب ضغط الشبكة أو صيانة الخادم. يرجى المحاولة بعد قليل.');
+        } else {
+          throw new Error(
+            `استجابة غير صالحة من السيرفر (رمز الحالة: ${res.status}). تعذر قراءة رد الذكاء الاصطناعي بشكل صحيح.`
+          );
+        }
       }
 
-      setAiResponse(data.reply || '');
+      let data: any;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        console.error('Failed to parse JSON response:', jsonErr);
+        throw new Error('تعذر فك ترميز استجابة خادم الذكاء الاصطناعي بتنسيق JSON صالح.');
+      }
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `خطأ في استجابة المساعد الذكي (${res.status})`);
+      }
+
+      if (!data.reply || typeof data.reply !== 'string' || !data.reply.trim()) {
+        throw new Error('لم يقم نموذج الذكاء الاصطناعي بإرجاع أي محتوى. يرجى إعادة المحاولة.');
+      }
+
+      setAiResponse(data.reply.trim());
     } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء معالجة الطلب');
+      console.error('AI Assistant execution error:', err);
+      setErrorMsg(err.message || 'حدث خطأ غير متوقع أثناء معالجة طلب الذكاء الاصطناعي.');
     } finally {
       setIsLoading(false);
     }
