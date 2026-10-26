@@ -328,6 +328,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     e.target.value = '';
   };
 
+  const handleClubImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSiteDraft((prev) => ({ ...prev, clubImage: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const handleCertBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -2243,11 +2254,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               )}
               <div className="flex-1">
+                <label className="block text-xs font-semibold text-[var(--muted)] mb-1">
+                  رفع شعار الموقع (أيقونة صغيرة)
+                </label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleLogoUpload}
-                  className="text-xs file:ms-2 file:px-3 file:py-1.5 file:rounded-xl file:border file:border-[var(--line)] file:bg-[var(--surface)] file:text-xs file:font-semibold"
+                  className="text-xs file:ms-2 file:px-3 file:py-1.5 file:rounded-xl file:border border-[var(--line)] file:bg-[var(--surface)] file:text-xs file:font-semibold"
                 />
               </div>
               {siteDraft.logo && (
@@ -2259,6 +2273,83 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   إزالة الشعار
                 </button>
               )}
+            </div>
+
+            {/* Club Picture and Welcome Banner Section */}
+            <div className="p-3.5 rounded-xl border border-[var(--line)] bg-[var(--bg)]/50 grid gap-3 mt-2">
+              <h4 className="font-bold text-xs text-[var(--fg)] flex items-center gap-2 m-0">
+                <span>صورة وبانر النادي المعروضة في الصفحة الرئيسية</span>
+              </h4>
+
+              {siteDraft.clubImage && (
+                <div className="relative rounded-xl overflow-hidden border border-[var(--line)] aspect-video max-h-48 bg-black/5">
+                  <img
+                    src={siteDraft.clubImage}
+                    alt="صورة النادي"
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSiteDraft((prev) => ({ ...prev, clubImage: '' }))}
+                    className="absolute top-2 end-2 px-2.5 py-1 rounded-lg bg-black/70 text-white text-[11px] font-bold hover:bg-rose-600 transition-colors shadow-md"
+                  >
+                    إزالة الصورة
+                  </button>
+                </div>
+              )}
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                  رابط صورة النادي المباشر (URL)
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/..."
+                    value={siteDraft.clubImage || ''}
+                    onChange={(e) =>
+                      setSiteDraft((prev) => ({ ...prev, clubImage: e.target.value }))
+                    }
+                    className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--fg)]"
+                  />
+                </label>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--muted)] mb-1">
+                    أو ارفع صورة من جهازك
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleClubImageUpload}
+                    className="w-full text-xs file:ms-2 file:px-3 file:py-1.5 file:rounded-xl file:border border-[var(--line)] file:bg-[var(--surface)] file:text-xs file:font-semibold"
+                  />
+                </div>
+              </div>
+
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                معلومات ونبذة عن النادي (تعرض في واجهة الرئيسية)
+                <textarea
+                  rows={3}
+                  value={siteDraft.clubAbout || ''}
+                  onChange={(e) =>
+                    setSiteDraft((prev) => ({ ...prev, clubAbout: e.target.value }))
+                  }
+                  placeholder="اكتب نبذة ترحيبية ومعلومات عن النادي ورؤيته وأهدافه..."
+                  className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--fg)] leading-relaxed"
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                معلومات التواصل أو رابط القناة/المجتمع (Contact Info)
+                <input
+                  type="text"
+                  placeholder="مثال: https://t.me/erwaa_club أو رقم التواصل"
+                  value={siteDraft.clubContact || ''}
+                  onChange={(e) =>
+                    setSiteDraft((prev) => ({ ...prev, clubContact: e.target.value }))
+                  }
+                  className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs text-[var(--fg)]"
+                />
+              </label>
             </div>
 
             <div>

@@ -112,6 +112,10 @@ export interface SiteSettings {
   fontHead: string;
   welcomeTitle: string;
   welcomeText: string;
+  clubImage?: string;
+  clubAbout?: string;
+  clubFeatures?: string[];
+  clubContact?: string;
   footer: string;
   labels: {
     cal: string;

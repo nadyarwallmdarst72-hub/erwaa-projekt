@@ -1,6 +1,7 @@
 import React from 'react';
 import { SiteSettings, Role } from '../types';
 import {
+  Home,
   CalendarDays,
   BookOpen,
   HelpCircle,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 
 export type MainTabKey =
+  | 'home'
   | 'cal'
   | 'courses'
   | 'questions'
@@ -46,8 +48,9 @@ export const TabsNav: React.FC<TabsNavProps> = ({
   };
 
   const tabs: { key: MainTabKey; label: string; shortLabel: string; icon: React.ReactNode; badge?: number }[] = [
-    { key: 'cal', label: labels.cal || 'لوحتي', shortLabel: 'لوحتي', icon: <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5" /> },
-    { key: 'courses', label: labels.courses || 'المقررات والمواد', shortLabel: 'المقررات', icon: <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" /> },
+    { key: 'home', label: 'الرئيسية', shortLabel: 'الرئيسية', icon: <Home className="w-4 h-4 sm:w-5 sm:h-5" /> },
+    { key: 'cal', label: labels.cal || 'لوحتي', shortLabel: 'التقويم', icon: <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5" /> },
+    { key: 'courses', label: labels.courses || 'المقررات', shortLabel: 'المقررات', icon: <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" /> },
     {
       key: 'questions',
       label: labels.questions || 'الأسئلة العلمية',

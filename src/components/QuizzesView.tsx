@@ -9,6 +9,7 @@ import {
   ArrowRight,
   RotateCcw,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 interface QuizzesViewProps {
@@ -20,6 +21,8 @@ interface QuizzesViewProps {
   onStartAttempt: (quizId: string) => void;
   onSubmitResult: (quizId: string, score: number, total: number) => void;
   onNavigateTab: (tab: any) => void;
+  isOwner?: boolean;
+  onDeleteQuiz?: (quizId: string) => void;
 }
 
 export const QuizzesView: React.FC<QuizzesViewProps> = ({
@@ -31,6 +34,8 @@ export const QuizzesView: React.FC<QuizzesViewProps> = ({
   onStartAttempt,
   onSubmitResult,
   onNavigateTab,
+  isOwner = false,
+  onDeleteQuiz,
 }) => {
   const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -377,7 +382,7 @@ export const QuizzesView: React.FC<QuizzesViewProps> = ({
                     )}
                   </div>
 
-                  <div className="flex-shrink-0 self-end sm:self-center">
+                  <div className="flex-shrink-0 self-end sm:self-center flex items-center gap-2">
                     <button
                       type="button"
                       disabled={!state.canTake}
@@ -391,6 +396,25 @@ export const QuizzesView: React.FC<QuizzesViewProps> = ({
                         ? 'إعادة الاختبار'
                         : 'ابدأ الاختبار'}
                     </button>
+
+                    {isOwner && onDeleteQuiz && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `هل أنت متأكد من حذف اختبار "${quiz.title}" نهائياً من المنصة والسحابة؟`
+                            )
+                          ) {
+                            onDeleteQuiz(quiz.id);
+                          }
+                        }}
+                        className="p-2 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                        title="حذف هذا الاختبار نهائياً (خاص بالمالك)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

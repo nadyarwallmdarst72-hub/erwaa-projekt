@@ -44,6 +44,7 @@ import {
 } from './services/cloudSync';
 import { Header } from './components/Header';
 import { TabsNav, MainTabKey } from './components/TabsNav';
+import { HomeView } from './components/HomeView';
 import { CalendarView } from './components/CalendarView';
 import { CoursesView } from './components/CoursesView';
 import { ScientificQuestionsView } from './components/ScientificQuestionsView';
@@ -64,7 +65,7 @@ export default function App() {
     () => appStorage.getSnapshot()
   );
 
-  const [currentTab, setCurrentTab] = useState<MainTabKey>('cal');
+  const [currentTab, setCurrentTab] = useState<MainTabKey>('home');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [cloudStatus, setCloudStatus] = useState<'connected' | 'syncing' | 'error'>('syncing');
 
@@ -805,6 +806,10 @@ export default function App() {
     showToast('تمت إعادة تعيين بيانات المنصة إلى الوضع التجريبي الأولي');
   };
 
+  const isOwner =
+    store.currentRole === 'owner' ||
+    currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+
   return (
     <div className="w-full max-w-7xl mx-auto min-h-screen flex flex-col justify-between transition-all">
       <div className="w-full">
@@ -867,6 +872,20 @@ export default function App() {
 
         {/* Main Views */}
         <main className="pb-6">
+          {currentTab === 'home' && (
+            <HomeView
+              site={store.site}
+              currentUser={currentUser}
+              courses={store.courses}
+              lessons={store.lessons}
+              students={store.students}
+              certificates={Object.values(store.certificates)}
+              isOwner={isOwner}
+              onNavigateTab={(tab) => setCurrentTab(tab)}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            />
+          )}
+
           {currentTab === 'cal' && (
             <CalendarView
               site={store.site}
@@ -878,6 +897,9 @@ export default function App() {
               onSaveAttendance={handleSaveAttendance}
               onOpenLesson={handleOpenLesson}
               onNavigateTab={(tab) => setCurrentTab(tab)}
+              isOwner={isOwner}
+              onDeleteLesson={handleDeleteLesson}
+              onDeleteBlock={handleDeleteBlock}
             />
           )}
 
@@ -892,6 +914,8 @@ export default function App() {
               onAddMaterial={handleAddCourseMaterial}
               onDeleteMaterial={handleDeleteCourseMaterial}
               onNavigateTab={(tab) => setCurrentTab(tab)}
+              isOwner={isOwner}
+              onDeleteCourse={handleDeleteCourse}
             />
           )}
 
@@ -918,6 +942,8 @@ export default function App() {
               onStartAttempt={handleStartQuizAttempt}
               onSubmitResult={handleSubmitQuizResult}
               onNavigateTab={(tab) => setCurrentTab(tab)}
+              isOwner={isOwner}
+              onDeleteQuiz={handleDeleteQuiz}
             />
           )}
 

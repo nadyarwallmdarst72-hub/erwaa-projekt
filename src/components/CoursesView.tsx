@@ -26,6 +26,8 @@ interface CoursesViewProps {
   onAddMaterial?: (courseId: string, mat: Omit<CourseMaterial, 'id'>) => void;
   onDeleteMaterial?: (courseId: string, materialId: string) => void;
   onNavigateTab: (tab: any) => void;
+  isOwner?: boolean;
+  onDeleteCourse?: (courseId: string) => void;
 }
 
 export const CoursesView: React.FC<CoursesViewProps> = ({
@@ -38,6 +40,8 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
   onAddMaterial,
   onDeleteMaterial,
   onNavigateTab,
+  isOwner = false,
+  onDeleteCourse,
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'course' | 'subject'>('all');
   const [expandedMaterialsCourseId, setExpandedMaterialsCourseId] = useState<string | null>(null);
@@ -264,6 +268,26 @@ export const CoursesView: React.FC<CoursesViewProps> = ({
                           style={{ backgroundColor: 'var(--accent)' }}
                         >
                           سجّلني في الدورة
+                        </button>
+                      )}
+
+                      {/* Owner Delete Course Button */}
+                      {isOwner && onDeleteCourse && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `هل أنت متأكد من حذف دورة "${course.title}" نهائياً من المنصة وجميع دروسها وموادها؟`
+                              )
+                            ) {
+                              onDeleteCourse(course.id);
+                            }
+                          }}
+                          className="p-2 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          title="حذف هذه الدورة نهائياً (خاص بالمالك)"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>
