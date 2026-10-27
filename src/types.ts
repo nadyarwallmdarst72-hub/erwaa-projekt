@@ -239,3 +239,34 @@ export interface ProjectReview {
   at: number;
   by: string;
 }
+
+export interface ResourceFile {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  courseId?: string;
+  courseTitle?: string;
+  fileUrl: string;
+  fileType: 'pdf' | 'doc' | 'image' | 'zip' | 'link';
+  fileSize?: string;
+  downloadCount?: number;
+  uploadedBy?: string;
+  uploadedAt: number;
+}
+
+export interface LessonComment {
+  id: string;
+  lessonId: string;
+  courseId?: string;
+  uid: string;
+  authorName: string;
+  authorRole: Role;
+  authorAvatar?: string;
+  content: string;
+  createdAt: number;
+  isStaffReply?: boolean;
+  replyToId?: string;
+  likes?: number;
+}
+

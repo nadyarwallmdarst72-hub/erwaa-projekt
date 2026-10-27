@@ -20,6 +20,8 @@ import {
   ScientificQuestion,
   ScientificAnswer,
   OWNER_EMAIL,
+  ResourceFile,
+  LessonComment,
 } from './types';
 
 export const DEFAULT_SITE: SiteSettings = {
@@ -131,6 +133,8 @@ export interface AppStoreData {
   reviews: Record<string, ProjectReview>;
   notifications: NotificationItem[];
   questions: ScientificQuestion[];
+  resources: ResourceFile[];
+  lessonComments: LessonComment[];
   currentUid: string;
   currentRole: Role;
   verificationCodes: Record<string, VerificationCode>;
@@ -710,6 +714,74 @@ function generateInitialSeed(): AppStoreData {
     reviews,
     notifications: [],
     questions: [],
+    resources: [
+      {
+        id: "res_1",
+        title: "ملزمة وملخص خوارزميات وهياكل البيانات الشاملة",
+        description: "شرح وافٍ باللغة العربية لمفاهيم Big-O ومصفوفات التكرار والأشجار الثنائية مع أمثلة برمجية.",
+        category: "كتب وملازم",
+        courseId: "subj_algo",
+        courseTitle: "خوارزميات وهياكل البيانات وتصميم النظم",
+        fileUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        fileType: "pdf",
+        fileSize: "2.4 MB",
+        downloadCount: 48,
+        uploadedBy: "أحمد",
+        uploadedAt: now - 15 * 86400000,
+      },
+      {
+        id: "res_2",
+        title: "ورقة الغش السريعة لـ React 19 و TypeScript (Cheatsheet)",
+        description: "مرجع مختصر لأهم الخطافات Hooks ودوال التعامل مع الحالة والـ Props في React الحديثة.",
+        category: "ملخصات",
+        courseId: "course_web",
+        courseTitle: "دورة تطوير تطبيقات الويب الحديثة (React & TypeScript)",
+        fileUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        fileType: "pdf",
+        fileSize: "1.1 MB",
+        downloadCount: 82,
+        uploadedBy: "أحمد",
+        uploadedAt: now - 10 * 86400000,
+      },
+      {
+        id: "res_3",
+        title: "حزمة مشاريع ونماذج UI/UX القابلة لإعادة الاستخدام",
+        description: "مكتبة تصاميم ومكونات جاهزة لواجهات المستخدم متوافقة مع Tailwind CSS.",
+        category: "مشاريع وأكواد",
+        courseId: "course_uiux",
+        courseTitle: "تصميم واجهات وتجربة المستخدم الاحترافية (UI/UX)",
+        fileUrl: "https://github.com",
+        fileType: "link",
+        fileSize: "رابط خارجي",
+        downloadCount: 35,
+        uploadedBy: "أ. سارة القحطاني",
+        uploadedAt: now - 6 * 86400000,
+      },
+    ],
+    lessonComments: [
+      {
+        id: "comm_1",
+        lessonId: "les_w1",
+        uid: "usr_khalid",
+        authorName: "خالد بن فيصل المنصور",
+        authorRole: "student",
+        content: "محاضرة رائعة ومفيدة جداً! هل من الممكن تزويدنا بتطبيقات إضافية على دالة useState؟",
+        createdAt: now - 6 * 86400000,
+        likes: 3,
+      },
+      {
+        id: "comm_2",
+        lessonId: "les_w1",
+        uid: ownerUid,
+        authorName: "أحمد (مالك المنصة)",
+        authorRole: "owner",
+        content: "أهلاً بك يا خالد! يسعدنا اهتمامك. تم رفع ورقة عمل وملزمة تدريبية جديدة في قسم بنك الملفات، كما يمكنك مراجعة التمرين المرفق أسفل الدرس.",
+        createdAt: now - 5 * 86400000,
+        isStaffReply: true,
+        replyToId: "comm_1",
+        likes: 5,
+      },
+    ],
     currentUid: "",
     currentRole: "student",
     verificationCodes: {},
@@ -740,6 +812,8 @@ class AppStorageManager {
               accountCode: isOwner ? "erwaa" : (u.accountCode || "123456"),
             };
           });
+          parsed.resources = parsed.resources || [];
+          parsed.lessonComments = parsed.lessonComments || [];
           // User request: When opening the website, start with no logged-in account
           parsed.currentUid = "";
           parsed.currentRole = "student";
@@ -853,6 +927,92 @@ class AppStorageManager {
       draft.site = { ...draft.site, ...siteSettings };
       if (certBg !== undefined && certBg !== null) {
         draft.certBg = certBg;
+      }
+    });
+  }
+
+  public syncCloudAttendance(cloudAttendance: Record<string, Record<string, AttendanceRecord>>) {
+    this.update((draft) => {
+      draft.attendance = { ...draft.attendance, ...cloudAttendance };
+    });
+  }
+
+  public syncCloudQuizResults(cloudQuizResults: Record<string, Record<string, QuizResult>>) {
+    this.update((draft) => {
+      draft.quizResults = { ...draft.quizResults, ...cloudQuizResults };
+    });
+  }
+
+  public syncCloudCertificates(cloudCertificates: Certificate[]) {
+    this.update((draft) => {
+      if (cloudCertificates.length > 0) {
+        draft.certificates = cloudCertificates;
+      }
+    });
+  }
+
+  public syncCloudResources(cloudResources: ResourceFile[]) {
+    this.update((draft) => {
+      if (cloudResources.length > 0) {
+        draft.resources = cloudResources;
+      }
+    });
+  }
+
+  public syncCloudLessonComments(cloudComments: LessonComment[]) {
+    this.update((draft) => {
+      draft.lessonComments = cloudComments;
+    });
+  }
+
+  public addResourceFile(res: ResourceFile) {
+    this.update((draft) => {
+      const idx = draft.resources.findIndex((r) => r.id === res.id);
+      if (idx >= 0) {
+        draft.resources[idx] = res;
+      } else {
+        draft.resources.unshift(res);
+      }
+    });
+  }
+
+  public deleteResourceFile(id: string) {
+    this.update((draft) => {
+      draft.resources = draft.resources.filter((r) => r.id !== id);
+    });
+  }
+
+  public incrementResourceDownload(id: string) {
+    this.update((draft) => {
+      const r = draft.resources.find((item) => item.id === id);
+      if (r) {
+        r.downloadCount = (r.downloadCount || 0) + 1;
+      }
+    });
+  }
+
+  public addLessonComment(comment: LessonComment) {
+    this.update((draft) => {
+      const idx = draft.lessonComments.findIndex((c) => c.id === comment.id);
+      if (idx >= 0) {
+        draft.lessonComments[idx] = comment;
+      } else {
+        draft.lessonComments.push(comment);
+      }
+    });
+  }
+
+  public deleteLessonComment(id: string) {
+    this.update((draft) => {
+      draft.lessonComments = draft.lessonComments.filter((c) => c.id !== id);
+    });
+  }
+
+  public likeLessonComment(id: string) {
+    this.update((draft) => {
+      const c = draft.lessonComments.find((item) => item.id === id);
+      if (c) {
+        c.likes = (c.likes || 0) + 1;
       }
     });
   }

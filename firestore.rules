@@ -50,6 +50,36 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // Attendance records
+    match /attendance/{recordId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Quiz Results
+    match /quiz_results/{resultId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Certificates
+    match /certificates/{certId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Resource Center / File Bank & Booklets
+    match /resources/{resId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Interactive Lesson Comments & Q&A
+    match /lesson_comments/{commentId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Global default deny
     match /{document=**} {
       allow read, write: if false;

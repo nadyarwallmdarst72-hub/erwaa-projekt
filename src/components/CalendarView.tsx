@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   SiteSettings,
   Course,
   Lesson,
   Announcement,
   AttendanceRecord,
+  LessonExercise,
+  Student,
+  UserAccount,
+  LessonComment,
 } from '../types';
 import {
   padZero,
@@ -31,8 +35,13 @@ import {
   CalendarDays,
   LayoutGrid,
   Trash2,
+  UserCheck,
+  UserX,
+  Users,
+  Search,
+  CheckCheck,
 } from 'lucide-react';
-import { LessonExercise } from '../types';
+import { LessonCommentsSection } from './LessonCommentsSection';
 
 interface CalendarViewProps {
   site: SiteSettings;
@@ -41,12 +50,23 @@ interface CalendarViewProps {
   blocks: Announcement[];
   enrolled: Record<string, { at: number }>;
   attendance: Record<string, AttendanceRecord>;
+  allAttendance?: Record<string, Record<string, AttendanceRecord>>;
+  students?: Student[];
+  users?: UserAccount[];
+  lessonComments?: LessonComment[];
+  currentUser?: UserAccount | null;
   onSaveAttendance: (lessonId: string, attended: boolean) => void;
+  onAdminSetStudentAttendance?: (studentUid: string, lessonId: string, attended: boolean) => void;
+  onAdminBatchSetAttendance?: (lessonId: string, studentUids: string[], attended: boolean) => void;
+  onAddLessonComment?: (comment: Omit<LessonComment, 'id' | 'createdAt'>) => void;
+  onDeleteLessonComment?: (commentId: string) => void;
+  onLikeLessonComment?: (commentId: string) => void;
   onOpenLesson: (lessonId: string) => void;
   onNavigateTab: (tab: any) => void;
   isOwner?: boolean;
   onDeleteLesson?: (lessonId: string) => void;
   onDeleteBlock?: (blockId: string) => void;
+  onOpenAuthModal?: () => void;
 }
 
 const ExerciseItemRow: React.FC<{
@@ -137,13 +157,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   blocks,
   enrolled,
   attendance,
+  allAttendance = {},
+  students = [],
+  users = [],
+  lessonComments = [],
+  currentUser = null,
   onSaveAttendance,
+  onAdminSetStudentAttendance,
+  onAdminBatchSetAttendance,
+  onAddLessonComment,
+  onDeleteLessonComment,
+  onLikeLessonComment,
   onOpenLesson,
   onNavigateTab,
   isOwner = false,
   onDeleteLesson,
   onDeleteBlock,
+  onOpenAuthModal,
 }) => {
+  const isStaff = isOwner || currentUser?.role === 'owner' || currentUser?.role === 'teacher';
   const today = new Date();
   const todayKey = formatDateKey(today);
 
@@ -152,6 +184,29 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedKey, setSelectedKey] = useState<string>(todayKey);
   const [activeSheetLessonId, setActiveSheetLessonId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'month' | 'compact'>('month');
+  const [rosterSearch, setRosterSearch] = useState('');
+
+  // Combined students roster
+  const allStudentsList = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; email?: string }>();
+    students.forEach((s) => map.set(s.id, { id: s.id, name: s.name, email: s.email }));
+    users
+      .filter((u) => u.role === 'student' || u.role === 'owner')
+      .forEach((u) => {
+        if (!map.has(u.id)) {
+          map.set(u.id, { id: u.id, name: u.name, email: u.email });
+        }
+      });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  }, [students, users]);
+
+  const filteredRoster = useMemo(() => {
+    if (!rosterSearch.trim()) return allStudentsList;
+    const q = rosterSearch.toLowerCase();
+    return allStudentsList.filter(
+      (s) => s.name.toLowerCase().includes(q) || (s.email && s.email.toLowerCase().includes(q))
+    );
+  }, [allStudentsList, rosterSearch]);
 
   // Month navigation
   const prevMonth = () => {
@@ -1091,6 +1146,123 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 </div>
               )}
             </div>
+
+            {/* STAFF / OWNER ATTENDANCE ROSTER: Take attendance for students */}
+            {isStaff && onAdminSetStudentAttendance && (
+              <div className="rounded-2xl border-2 border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 sm:p-4 grid gap-3 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200 dark:border-emerald-800 pb-2.5">
+                  <div>
+                    <h4 className="font-bold text-sm font-display text-[var(--fg)] m-0 flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-emerald-600" />
+                      <span>كشف تحضير وغياب الطلاب للمحاضرة</span>
+                    </h4>
+                    <span className="text-[11px] text-[var(--muted)]">
+                      يمكنك كمعلم أو مالك تسجيل وإلغاء حضور أي طالب وتنعكس التغييرات لحظياً في حسابه
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allUids = allStudentsList.map((s) => s.id);
+                        onAdminBatchSetAttendance?.(sheetLesson.id, allUids, true);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition-colors"
+                    >
+                      <CheckCheck className="w-3.5 h-3.5" />
+                      <span>تحضير الكل ({allStudentsList.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allUids = allStudentsList.map((s) => s.id);
+                        onAdminBatchSetAttendance?.(sheetLesson.id, allUids, false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 text-[11px] font-semibold transition-colors"
+                    >
+                      <span>إلغاء تحضير الكل</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search student in this lesson's roster */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-[var(--muted)] absolute right-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="ابحث عن اسم طالب في كشف التحضير..."
+                    value={rosterSearch}
+                    onChange={(e) => setRosterSearch(e.target.value)}
+                    className="w-full text-xs pr-9 pl-3 py-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-[var(--fg)]"
+                  />
+                </div>
+
+                {/* Roster list */}
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                  {filteredRoster.length === 0 ? (
+                    <p className="text-center text-xs text-[var(--muted)] py-3">لا يوجد طلاب مطابقين للبحث</p>
+                  ) : (
+                    filteredRoster.map((stu) => {
+                      const stuAtt = allAttendance[stu.id] || {};
+                      const isStuAttended = !!stuAtt[sheetLesson.id]?.attended;
+                      return (
+                        <div
+                          key={stu.id}
+                          className="flex items-center justify-between p-2 rounded-xl bg-[var(--surface)] border border-[var(--line)] text-xs hover:border-[var(--accent)] transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
+                            <div className="w-6 h-6 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                              {stu.name.charAt(0) || 'ط'}
+                            </div>
+                            <div className="truncate">
+                              <span className="font-bold text-[var(--fg)] truncate block">{stu.name}</span>
+                              <span className="text-[10px] text-[var(--muted)] truncate block">{stu.email}</span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => onAdminSetStudentAttendance(stu.id, sheetLesson.id, !isStuAttended)}
+                            className={`px-3 py-1 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                              isStuAttended
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'border border-[var(--line)] text-[var(--muted)] hover:border-emerald-500 hover:text-emerald-600'
+                            }`}
+                          >
+                            {isStuAttended ? (
+                              <>
+                                <UserCheck className="w-3.5 h-3.5" />
+                                <span>حاضر ✓</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserX className="w-3.5 h-3.5" />
+                                <span>غائب ✗</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* INTERACTIVE LESSON COMMENTS & Q&A */}
+            {onAddLessonComment && (
+              <LessonCommentsSection
+                lessonId={sheetLesson.id}
+                lessonTitle={sheetLesson.title}
+                comments={lessonComments}
+                currentUser={currentUser}
+                onAddComment={onAddLessonComment}
+                onDeleteComment={onDeleteLessonComment || (() => {})}
+                onLikeComment={onLikeLessonComment || (() => {})}
+                onOpenAuthModal={onOpenAuthModal || (() => {})}
+              />
+            )}
 
             {/* Attendance Status Notification */}
             {isAttended(sheetLesson.id) ? (

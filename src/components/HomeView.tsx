@@ -18,7 +18,10 @@ import {
   Clock,
   Compass,
   Star,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { compressImage } from '../utils/imageOptimizer';
 
 interface HomeViewProps {
   site: SiteSettings;
@@ -30,6 +33,7 @@ interface HomeViewProps {
   isOwner: boolean;
   onOpenAuthModal: (mode?: 'login' | 'register') => void;
   onNavigateTab: (tab: any) => void;
+  onUpdateSite?: (newSite: SiteSettings) => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -42,6 +46,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   isOwner,
   onOpenAuthModal,
   onNavigateTab,
+  onUpdateSite,
 }) => {
   const clubImage =
     site.clubImage ||
@@ -75,7 +80,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div>
               <span className="font-bold block">مرحباً بك يا مالك المنصة!</span>
               <span className="opacity-90">
-                يمكنك تعديل صورة النادي، النبذة التعريفية، الألوان، والمميزات مباشرة من لوحة الإدارة وسيتزامن فوراً مع جميع الأجهزة.
+                أي تعديل تجريه على صورة النادي أو البيانات يتم ضغطه وحفظه فوراً في السحابة ليتغير عند جميع المستخدمين والزوار لحظياً.
               </span>
             </div>
           </div>
@@ -100,6 +105,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
             className="w-full h-full object-cover object-center opacity-70 transition-transform duration-700 hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface)] via-[var(--surface)]/60 to-transparent" />
+
+          {/* Quick Owner Image Changer */}
+          {isOwner && onUpdateSite && (
+            <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-2 z-10">
+              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/25 text-white text-xs font-bold shadow-md cursor-pointer transition-all hover:scale-105">
+                <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                <span>تغيير صورة النادي للجميع</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      const compressed = await compressImage(file, 1200, 800, 0.78);
+                      onUpdateSite({ ...site, clubImage: compressed });
+                    } catch (err) {
+                      console.error('Image compression error:', err);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          )}
 
           {/* Floating Brand Badge */}
           <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-md">

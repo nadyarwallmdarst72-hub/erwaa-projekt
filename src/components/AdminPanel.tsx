@@ -58,7 +58,15 @@ import {
   Plus,
   Lightbulb,
   FileCheck,
+  TrendingUp,
+  FolderDown,
+  CheckCheck,
+  Search,
+  Upload,
 } from 'lucide-react';
+import { StudentAnalyticsDashboard } from './StudentAnalyticsDashboard';
+import { compressImage } from '../utils/imageOptimizer';
+import { ResourceFile } from '../types';
 
 interface AdminPanelProps {
   site: SiteSettings;
@@ -76,6 +84,7 @@ interface AdminPanelProps {
   certificates: Certificate[];
   projects: Record<string, Project>;
   reviews: Record<string, ProjectReview>;
+  resources: ResourceFile[];
   role: Role;
   currentUserEmail?: string;
   onUpdateSite: (newSite: SiteSettings) => void;
@@ -95,6 +104,10 @@ interface AdminPanelProps {
   onSuspendUser: (uid: string, suspend: boolean) => void;
   onDeleteUser: (uid: string) => void;
   onPromoteUser: (uid: string, newRole: Role) => void;
+  onSaveResource: (res: Omit<ResourceFile, 'id' | 'uploadedAt'>) => void;
+  onDeleteResource: (id: string) => void;
+  onAdminSetStudentAttendance?: (studentUid: string, lessonId: string, attended: boolean) => void;
+  onAdminBatchSetAttendance?: (lessonId: string, studentUids: string[], attended: boolean) => void;
   onResetAllData: () => void;
   onOpenImportExcel?: () => void;
   onOpenAiAssistant?: () => void;
@@ -103,6 +116,9 @@ interface AdminPanelProps {
 type AdminTab =
   | 'users'
   | 'students'
+  | 'attendance'
+  | 'analytics'
+  | 'resources'
   | 'courses'
   | 'lessons'
   | 'quizzes'
@@ -147,6 +163,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   certificates,
   projects,
   reviews,
+  resources = [],
   role,
   currentUserEmail,
   onUpdateSite,
@@ -166,6 +183,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onSuspendUser,
   onDeleteUser,
   onPromoteUser,
+  onSaveResource,
+  onDeleteResource,
+  onAdminSetStudentAttendance,
+  onAdminBatchSetAttendance,
   onResetAllData,
   onOpenImportExcel,
   onOpenAiAssistant,
@@ -173,10 +194,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const isOwner = role === 'owner' || currentUserEmail?.toLowerCase() === OWNER_EMAIL.toLowerCase();
   const [activeTab, setActiveTab] = useState<AdminTab>(isOwner ? 'users' : 'students');
 
+  // Attendance Roll-Call Manager State
+  const [attendanceLessonId, setAttendanceLessonId] = useState<string>(() => lessons[0]?.id || '');
+  const [attendanceSearch, setAttendanceSearch] = useState<string>('');
+
+  // Resource Center Form State
+  const [resTitle, setResTitle] = useState('');
+  const [resDesc, setResDesc] = useState('');
+  const [resCat, setResCat] = useState('كتب وملازم');
+  const [resCourseId, setResCourseId] = useState('');
+  const [resFileType, setResFileType] = useState<'pdf' | 'doc' | 'image' | 'zip' | 'link'>('pdf');
+  const [resFileUrl, setResFileUrl] = useState('');
+  const [resFileSize, setResFileSize] = useState('');
+  const [isResUploading, setIsResUploading] = useState(false);
+
   // Course filter for Students & Projects tabs
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('all');
   const [projectStatusFilter, setProjectStatusFilter] = useState<string>('all');
   const [selectedStudentDrilldownId, setSelectedStudentDrilldownId] = useState<string | null>(null);
+  const [selectedStudentAnalyticsId, setSelectedStudentAnalyticsId] = useState<string | null>(null);
 
   // Review Modal State
   const [reviewingProject, setReviewingProject] = useState<Project | null>(null);
@@ -317,42 +353,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     isDraggingRef.current = null;
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setSiteDraft((prev) => ({ ...prev, logo: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 400, 400, 0.82);
+      setSiteDraft((prev) => ({ ...prev, logo: compressed }));
+    } catch (err) {
+      console.warn('Error compressing logo:', err);
+    }
     e.target.value = '';
   };
 
-  const handleClubImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleClubImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setSiteDraft((prev) => ({ ...prev, clubImage: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 1200, 800, 0.78);
+      setSiteDraft((prev) => ({ ...prev, clubImage: compressed }));
+    } catch (err) {
+      console.warn('Error compressing club image:', err);
+    }
     e.target.value = '';
   };
 
-  const handleCertBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCertBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setCertBgDraft(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 1200, 850, 0.75);
+      setCertBgDraft(compressed);
+    } catch (err) {
+      console.warn('Error compressing cert background:', err);
+    }
     e.target.value = '';
   };
 
-  const saveSiteChanges = () => {
-    onUpdateSite(siteDraft);
-    onUpdateCertBg(certBgDraft);
+  const saveSiteChanges = async () => {
+    let finalSite = { ...siteDraft };
+    if (finalSite.clubImage && finalSite.clubImage.startsWith('data:image')) {
+      finalSite.clubImage = await compressImage(finalSite.clubImage, 1200, 800, 0.78);
+    }
+    if (finalSite.logo && finalSite.logo.startsWith('data:image')) {
+      finalSite.logo = await compressImage(finalSite.logo, 400, 400, 0.82);
+    }
+    let finalCertBg = certBgDraft;
+    if (finalCertBg && finalCertBg.startsWith('data:image')) {
+      finalCertBg = await compressImage(finalCertBg, 1200, 850, 0.75);
+    }
+    onUpdateSite(finalSite);
+    onUpdateCertBg(finalCertBg);
     setSiteSavedMsg(true);
     setTimeout(() => setSiteSavedMsg(false), 3000);
   };
@@ -558,6 +608,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               ]
             : []),
           { key: 'students' as AdminTab, label: 'الطلاب ونسب الحضور', icon: <GraduationCap className="w-4 h-4" /> },
+          {
+            key: 'attendance' as AdminTab,
+            label: 'كشف التحضير والغياب',
+            icon: <UserCheck className="w-4 h-4 text-emerald-600" />,
+          },
+          {
+            key: 'analytics' as AdminTab,
+            label: '📊 تحليلات ومخططات الطلاب',
+            icon: <TrendingUp className="w-4 h-4 text-purple-500" />,
+          },
+          {
+            key: 'resources' as AdminTab,
+            label: 'بنك الملفات والملازم',
+            icon: <FolderDown className="w-4 h-4 text-blue-500" />,
+          },
           { key: 'courses' as AdminTab, label: 'الدورات والمواد', icon: <BookOpen className="w-4 h-4" /> },
           { key: 'lessons' as AdminTab, label: 'الدروس والجدول', icon: <CalendarDays className="w-4 h-4" /> },
           { key: 'quizzes' as AdminTab, label: 'الاختبارات', icon: <HelpCircle className="w-4 h-4" /> },
@@ -894,7 +959,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setActiveTab('analytics')}
+                className="px-3.5 py-2 rounded-xl border border-purple-300 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-200 text-xs font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors flex items-center gap-1.5 shadow-xs"
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-purple-600" />
+                <span>لوحة الرسوم البيانية ومتابعة التطور</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleExportCsv}
@@ -988,17 +1062,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           )}
                         </td>
                         <td className="p-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedStudentDrilldownId(
-                                selectedStudentDrilldownId === stu.id ? null : stu.id
-                              )
-                            }
-                            className="px-2.5 py-1 rounded-lg border border-[var(--line)] text-xs font-semibold hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
-                          >
-                            {selectedStudentDrilldownId === stu.id ? 'إخفاء التفاصيل' : 'عرض السجل'}
-                          </button>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedStudentAnalyticsId(stu.id);
+                                setActiveTab('analytics');
+                              }}
+                              className="px-2.5 py-1 rounded-lg border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-xs font-semibold flex items-center gap-1 transition-colors"
+                              title="عرض الرسوم البيانية لتطور مستوى الطالب بالحضور والاختبارات"
+                            >
+                              <TrendingUp className="w-3.5 h-3.5 text-purple-600" />
+                              <span>مخطط المستوى</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedStudentDrilldownId(
+                                  selectedStudentDrilldownId === stu.id ? null : stu.id
+                                )
+                              }
+                              className="px-2.5 py-1 rounded-lg border border-[var(--line)] text-xs font-semibold hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+                            >
+                              {selectedStudentDrilldownId === stu.id ? 'إخفاء التفاصيل' : 'عرض السجل'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1101,6 +1190,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             );
           })()}
         </div>
+      )}
+
+      {/* TAB: STUDENT ANALYTICS DASHBOARD (RECHARTS) - OWNER & TEACHER ONLY */}
+      {activeTab === 'analytics' && (
+        <StudentAnalyticsDashboard
+          role={role}
+          students={students}
+          users={users}
+          courses={courses}
+          lessons={lessons}
+          quizzes={quizzes}
+          attendance={attendance}
+          quizResults={quizResults}
+          certificates={certificates}
+          initialStudentId={selectedStudentAnalyticsId}
+          onIssueCertificate={onIssueCertificate}
+        />
       )}
 
       {/* TAB 2: COURSES MANAGEMENT */}

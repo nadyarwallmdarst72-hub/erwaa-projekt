@@ -41,6 +41,9 @@ import {
   saveQuizToCloud,
   deleteQuizFromCloud,
   saveSiteSettingsToCloud,
+  saveAttendanceToCloud,
+  saveQuizResultToCloud,
+  saveCertificateToCloud,
 } from './services/cloudSync';
 import { Header } from './components/Header';
 import { TabsNav, MainTabKey } from './components/TabsNav';
