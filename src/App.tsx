@@ -57,7 +57,7 @@ import { NotificationsModal } from './components/NotificationsModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { ImportExcelModal } from './components/ImportExcelModal';
 import { AiStaffAssistantModal } from './components/AiStaffAssistantModal';
-import { Clock, ShieldAlert, Sparkles } from 'lucide-react';
+import { Clock, ShieldAlert, Sparkles, Lock, LogIn } from 'lucide-react';
 
 export default function App() {
   const store = useSyncExternalStore(
@@ -151,21 +151,21 @@ export default function App() {
   const unreadNotificationsCount = userNotifications.filter((n) => !n.read).length;
 
   // --- Profile & Auth Handlers ---
-  const handleLogin = (email: string, code: string) => {
-    const res = appStorage.loginWithCode(email, code);
+  const handleLogin = (email: string, code: string, rememberMe: boolean = true) => {
+    const res = appStorage.loginWithCode(email, code, rememberMe);
     if (res.success && res.user) {
       const isOwnerLogin = res.user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
       showToast(
         isOwnerLogin
           ? `أهلاً بك مجدداً يا مالك المنصة (${res.user.name})!`
-          : `أهلاً بك، ${res.user.name}!`
+          : `أهلاً بك، ${res.user.name}! ${rememberMe ? 'تم تفعيل الحفظ التلقائي.' : ''}`
       );
     }
     return res;
   };
 
-  const handleRegister = (email: string, code: string, name: string) => {
-    const res = appStorage.registerWithCode(email, code, name);
+  const handleRegister = (email: string, code: string, name: string, rememberMe: boolean = true) => {
+    const res = appStorage.registerWithCode(email, code, name, rememberMe);
     if (res.success && res.user) {
       saveUserToCloud(res.user);
       const isOwnerLogin = res.user.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
@@ -181,7 +181,7 @@ export default function App() {
   const handleLogout = () => {
     appStorage.logout();
     showToast('تم تسجيل الخروج بنجاح.');
-    setCurrentTab('cal');
+    setCurrentTab('home');
   };
 
   const handleUpdateProfile = (updates: Partial<UserAccount>) => {
@@ -886,7 +886,52 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'cal' && (
+          {/* Locked Protection Screen for Unauthenticated Visitors */}
+          {!currentUser && currentTab !== 'home' && (
+            <div className="max-w-xl mx-auto my-8 sm:my-12 p-6 sm:p-8 rounded-3xl border border-[var(--line)] bg-[var(--surface)] shadow-lg text-center grid gap-4 animate-scale-up">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-xs border border-amber-200 dark:border-amber-800">
+                <Lock className="w-8 h-8" />
+              </div>
+
+              <div>
+                <h3 className="text-xl font-bold font-display text-[var(--fg)] m-0">
+                  {currentTab === 'cal'
+                    ? 'اللوحة التعليمية متاحة فقط للأعضاء المسجلين'
+                    : 'هذا القسم متاح فقط للأعضاء المسجلين'}
+                </h3>
+                <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed m-0 mt-2 max-w-md mx-auto">
+                  عذراً، محتوى{' '}
+                  <strong className="text-[var(--fg)]">
+                    {store.site.labels[currentTab as keyof typeof store.site.labels] || 'هذا القسم'}
+                  </strong>{' '}
+                  والدروس والاختبارات والمقررات والشهادات محمي ومخصص فقط للطلاب والأعضاء المسجلين. يرجى تسجيل الدخول أو إنشاء حساب جديد للوصول.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-xs transition-transform hover:scale-105 cursor-pointer flex items-center justify-center gap-2"
+                  style={{ backgroundColor: 'var(--accent)' }}
+                >
+                  <LogIn className="w-4 h-4" />
+                  تسجيل الدخول / إنشاء حساب
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentTab('home')}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-[var(--line)] text-xs sm:text-sm font-semibold text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--line)]/30 transition-colors cursor-pointer"
+                >
+                  العودة للرئيسية
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Member Protected Content */}
+          {currentUser && currentTab === 'cal' && (
             <CalendarView
               site={store.site}
               courses={store.courses}
@@ -903,7 +948,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'courses' && (
+          {currentUser && currentTab === 'courses' && (
             <CoursesView
               courses={store.courses}
               lessons={store.lessons}
@@ -919,7 +964,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'questions' && (
+          {currentUser && currentTab === 'questions' && (
             <ScientificQuestionsView
               questions={store.questions}
               courses={store.courses}
@@ -932,7 +977,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'quiz' && (
+          {currentUser && currentTab === 'quiz' && (
             <QuizzesView
               quizzes={store.quizzes}
               courses={store.courses}
@@ -947,7 +992,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'certs' && (
+          {currentUser && currentTab === 'certs' && (
             <CertificatesView
               site={store.site}
               certBg={store.certBg}
@@ -964,7 +1009,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'projects' && (
+          {currentUser && currentTab === 'projects' && (
             <ProjectsView
               projects={myProjects}
               reviews={store.reviews}
@@ -975,7 +1020,7 @@ export default function App() {
             />
           )}
 
-          {currentTab === 'admin' && (
+          {currentUser && currentTab === 'admin' && (
             <AdminPanel
               site={store.site}
               certBg={store.certBg}
@@ -1040,9 +1085,15 @@ export default function App() {
       <TabsNav
         site={store.site}
         currentTab={currentTab}
-        onTabChange={(tab) => setCurrentTab(tab)}
+        onTabChange={(tab) => {
+          if (!currentUser && tab !== 'home') {
+            setIsAuthModalOpen(true);
+          }
+          setCurrentTab(tab);
+        }}
         role={store.currentRole}
         pendingProjectsCount={pendingProjectsCount}
+        isLoggedIn={!!currentUser}
       />
 
       {/* Modals */}

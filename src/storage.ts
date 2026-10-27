@@ -1006,7 +1006,8 @@ class AppStorageManager {
   // --- Secure Account Code Auth Methods ---
   public loginWithCode(
     email: string,
-    code: string
+    code: string,
+    rememberMe: boolean = true
   ): { success: boolean; error?: string; user?: UserAccount } {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = code.trim();
@@ -1046,6 +1047,18 @@ class AppStorageManager {
       };
     }
 
+    if (rememberMe) {
+      try {
+        localStorage.setItem("irwaa_remember_session", "true");
+        localStorage.setItem("irwaa_saved_uid", user.id);
+      } catch {}
+    } else {
+      try {
+        localStorage.removeItem("irwaa_remember_session");
+        localStorage.removeItem("irwaa_saved_uid");
+      } catch {}
+    }
+
     this.update((draft) => {
       const u = draft.users.find((x) => x.id === user.id);
       if (u) {
@@ -1061,7 +1074,8 @@ class AppStorageManager {
   public registerWithCode(
     email: string,
     code: string,
-    name: string
+    name: string,
+    rememberMe: boolean = true
   ): { success: boolean; error?: string; user?: UserAccount } {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = code.trim();
@@ -1098,6 +1112,18 @@ class AppStorageManager {
       bio: isOwner ? "مالك المنصة" : "طالب في المنصة",
     };
 
+    if (rememberMe) {
+      try {
+        localStorage.setItem("irwaa_remember_session", "true");
+        localStorage.setItem("irwaa_saved_uid", newUser.id);
+      } catch {}
+    } else {
+      try {
+        localStorage.removeItem("irwaa_remember_session");
+        localStorage.removeItem("irwaa_saved_uid");
+      } catch {}
+    }
+
     this.update((draft) => {
       draft.users.push(newUser);
       if (newUser.role === "student" || newUser.role === "owner") {
@@ -1119,11 +1145,12 @@ class AppStorageManager {
   public verifyAndLogin(
     email: string,
     code: string,
-    name?: string
+    name?: string,
+    rememberMe: boolean = true
   ): { success: boolean; error?: string; user?: UserAccount } {
-    const loginRes = this.loginWithCode(email, code);
+    const loginRes = this.loginWithCode(email, code, rememberMe);
     if (loginRes.success) return loginRes;
-    return this.registerWithCode(email, code, name || "");
+    return this.registerWithCode(email, code, name || "", rememberMe);
   }
 
   public generateOtpCode(email: string): string {
@@ -1131,6 +1158,10 @@ class AppStorageManager {
   }
 
   public logout() {
+    try {
+      localStorage.removeItem("irwaa_remember_session");
+      localStorage.removeItem("irwaa_saved_uid");
+    } catch {}
     this.update((draft) => {
       draft.currentUid = "";
       draft.currentRole = "student";

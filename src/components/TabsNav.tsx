@@ -28,6 +28,7 @@ interface TabsNavProps {
   role: Role;
   pendingProjectsCount?: number;
   unansweredQuestionsCount?: number;
+  isLoggedIn?: boolean;
 }
 
 export const TabsNav: React.FC<TabsNavProps> = ({
@@ -36,6 +37,7 @@ export const TabsNav: React.FC<TabsNavProps> = ({
   onTabChange,
   role,
   pendingProjectsCount = 0,
+  isLoggedIn = true,
 }) => {
   const isStaff = role === 'owner' || role === 'teacher';
   const labels = site.labels || {

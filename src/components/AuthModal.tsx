@@ -4,8 +4,8 @@ import { Mail, KeyRound, User, Lock, Eye, EyeOff, AlertCircle, X, ShieldCheck, U
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (email: string, code: string) => { success: boolean; error?: string };
-  onRegister: (email: string, code: string, name: string) => { success: boolean; error?: string };
+  onLogin: (email: string, code: string, rememberMe: boolean) => { success: boolean; error?: string };
+  onRegister: (email: string, code: string, name: string, rememberMe: boolean) => { success: boolean; error?: string };
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -20,6 +20,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [confirmCode, setConfirmCode] = useState('');
   const [name, setName] = useState('');
   const [showCode, setShowCode] = useState(false);
+  const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState('');
 
   if (!isOpen) return null;
@@ -31,6 +32,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setName('');
     setErrorMsg('');
     setShowCode(false);
+    setRememberMe(true);
   };
 
   const handleClose = () => {
@@ -52,7 +54,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const res = onLogin(cleanEmail, cleanCode);
+    const res = onLogin(cleanEmail, cleanCode, rememberMe);
     if (res.success) {
       handleClose();
     } else {
@@ -83,7 +85,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const res = onRegister(cleanEmail, cleanCode, cleanName);
+    const res = onRegister(cleanEmail, cleanCode, cleanName, rememberMe);
     if (res.success) {
       handleClose();
     } else {
@@ -216,6 +218,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               />
             </label>
 
+            {/* Auto-save / Remember login checkbox */}
+            <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[var(--bg)] border border-[var(--line)] cursor-pointer select-none transition-colors hover:border-[var(--accent)]/50">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-[var(--accent)] accent-[var(--accent)] cursor-pointer flex-shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-bold text-[var(--fg)]">
+                    تشغيل الحفظ التلقائي على هذا الجهاز
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                    مستحسن
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--muted)] m-0 mt-0.5 leading-snug">
+                  البقاء مسجلاً في الموقع تلقائياً دون الحاجة لإعادة إدخال الرمز عند الرجوع.
+                </p>
+              </div>
+            </label>
+
             {errorMsg && (
               <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 font-semibold flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -331,6 +356,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 محمي من التكرار بحسابات متعددة
               </span>
             </div>
+
+            {/* Auto-save / Remember login checkbox */}
+            <label className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[var(--bg)] border border-[var(--line)] cursor-pointer select-none transition-colors hover:border-[var(--accent)]/50">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-[var(--accent)] accent-[var(--accent)] cursor-pointer flex-shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-bold text-[var(--fg)]">
+                    تشغيل الحفظ التلقائي على هذا الجهاز
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                    مستحسن
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--muted)] m-0 mt-0.5 leading-snug">
+                  حفظ جلستي تلقائياً والدخول مباشرة عند فتح المنصة لاحقاً.
+                </p>
+              </div>
+            </label>
 
             {errorMsg && (
               <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 font-semibold flex items-start gap-2">
