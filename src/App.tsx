@@ -22,6 +22,9 @@ import {
   CourseMaterial,
   ScientificQuestion,
   OWNER_EMAIL,
+  ResourceFile,
+  LessonComment,
+  NotificationItem,
 } from './types';
 import {
   initCloudSync,
@@ -44,12 +47,24 @@ import {
   saveAttendanceToCloud,
   saveQuizResultToCloud,
   saveCertificateToCloud,
+  deleteCertificateFromCloud,
+  saveResourceToCloud,
+  deleteResourceFromCloud,
+  incrementResourceDownloadInCloud,
+  saveLessonCommentToCloud,
+  deleteLessonCommentFromCloud,
+  likeLessonCommentInCloud,
+  saveNotificationToCloud,
+  deleteNotificationFromCloud,
+  markNotificationReadInCloud,
 } from './services/cloudSync';
 import { Header } from './components/Header';
 import { TabsNav, MainTabKey } from './components/TabsNav';
 import { HomeView } from './components/HomeView';
 import { CalendarView } from './components/CalendarView';
 import { CoursesView } from './components/CoursesView';
+import { ResourcesView } from './components/ResourcesView';
+import { LeaderboardView } from './components/LeaderboardView';
 import { ScientificQuestionsView } from './components/ScientificQuestionsView';
 import { QuizzesView } from './components/QuizzesView';
 import { CertificatesView } from './components/CertificatesView';
@@ -197,15 +212,20 @@ export default function App() {
   // --- Notifications Handlers ---
   const handleMarkNotificationAsRead = (id: string) => {
     appStorage.markNotificationAsRead(id);
+    markNotificationReadInCloud(id);
   };
 
   const handleMarkAllNotificationsAsRead = () => {
     appStorage.markAllNotificationsAsRead(currentUser?.id);
+    userNotifications.forEach((n) => {
+      markNotificationReadInCloud(n.id);
+    });
     showToast('تم تحديد جميع الإشعارات كمقروءة.');
   };
 
   const handleDeleteNotification = (id: string) => {
     appStorage.deleteNotification(id);
+    deleteNotificationFromCloud(id);
     showToast('تم حذف الإشعار.');
   };
 
@@ -299,6 +319,11 @@ export default function App() {
       return;
     }
 
+    const rec = {
+      attended: attended ? Date.now() : null,
+      opened: Date.now(),
+    };
+
     appStorage.update((draft) => {
       if (!draft.attendance[draft.currentUid]) {
         draft.attendance[draft.currentUid] = {};
@@ -306,11 +331,13 @@ export default function App() {
       const existing = draft.attendance[draft.currentUid][lessonId] || {};
       draft.attendance[draft.currentUid][lessonId] = {
         ...existing,
-        attended: attended ? Date.now() : null,
-        opened: existing.opened || Date.now(),
+        attended: rec.attended,
+        opened: existing.opened || rec.opened,
       };
     });
-    showToast(attended ? 'تم تسجيل حضورك بنجاح ✓' : 'تم إلغاء تسجيل الحضور');
+
+    saveAttendanceToCloud(currentUser.id, lessonId, rec);
+    showToast(attended ? 'تم تسجيل حضورك بنجاح ومزامنته ✓' : 'تم إلغاء تسجيل الحضور');
   };
 
   const handleOpenLesson = (lessonId: string) => {
@@ -327,6 +354,7 @@ export default function App() {
         };
       }
     });
+    saveAttendanceToCloud(store.currentUid, lessonId, { opened: Date.now() });
   };
 
   const handleEnroll = (courseId: string, enroll: boolean) => {
@@ -368,19 +396,25 @@ export default function App() {
 
   const handleSubmitQuizResult = (quizId: string, score: number, total: number) => {
     if (!store.currentUid) return;
+    let resObj: any = null;
     appStorage.update((draft) => {
       if (!draft.quizResults[draft.currentUid]) {
         draft.quizResults[draft.currentUid] = {};
       }
       const prev = draft.quizResults[draft.currentUid][quizId];
       const best = Math.max(score, prev?.best || 0);
-      draft.quizResults[draft.currentUid][quizId] = {
+      resObj = {
         score,
         total,
         best,
         at: Date.now(),
       };
+      draft.quizResults[draft.currentUid][quizId] = resObj;
     });
+
+    if (resObj) {
+      saveQuizResultToCloud(store.currentUid, quizId, resObj);
+    }
     showToast(`تم إنهاء الاختبار وتسجيل نتيجتك: ${score} من ${total}`);
   };
 
@@ -392,7 +426,10 @@ export default function App() {
       const stu = draft.students.find((s) => s.id === draft.currentUid);
       if (stu) stu.name = name;
     });
-    showToast('تم حفظ اسمك المعتمد');
+    if (currentUser) {
+      updateUserProfileInCloud(currentUser.id, { name });
+    }
+    showToast('تم حفظ اسمك المعتمد ومزامنته سحابياً');
   };
 
   const handleSaveProject = (data: Partial<Project>, projectId?: string) => {
@@ -446,21 +483,27 @@ export default function App() {
   };
 
   const handleIssueCertificate = (courseId: string, uid: string) => {
+    let newCert: any = null;
     appStorage.update((draft) => {
       const exists = draft.certificates.some(
         (c) => c.courseId === courseId && c.uid === uid
       );
       if (exists) return;
       const serial = 'E' + Date.now().toString(36).toUpperCase().slice(-5);
-      draft.certificates.push({
+      newCert = {
         id: `${courseId}_${uid}`,
         courseId,
         uid,
         issuedAt: Date.now(),
         serial,
-      });
+      };
+      draft.certificates.push(newCert);
     });
-    showToast('تم إصدار الشهادة الرسمية بنجاح 🎓');
+
+    if (newCert) {
+      saveCertificateToCloud(newCert);
+    }
+    showToast('تم إصدار الشهادة الرسمية ومزامنتها سحابياً لجميع الأجهزة 🎓');
   };
 
   const handleAssignTeacherCourses = (teacherId: string, courseIds: string[]) => {
@@ -804,6 +847,192 @@ export default function App() {
     showToast('تم حفظ خلفية الشهادة سحابياً بنجاح.');
   };
 
+  // --- Resource Center Handlers ---
+  const handleSaveResource = (res: Omit<ResourceFile, 'id' | 'uploadedAt'>) => {
+    const newRes: ResourceFile = {
+      ...res,
+      id: `res_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      uploadedAt: Date.now(),
+      downloadCount: 0,
+    };
+    appStorage.addResourceFile(newRes);
+    saveResourceToCloud(newRes);
+    showToast('تمت إضافة الملف إلى بنك الملفات والملازم ومزامنته سحابياً بنجاح!');
+  };
+
+  const handleDeleteResource = (id: string) => {
+    appStorage.deleteResourceFile(id);
+    deleteResourceFromCloud(id);
+    showToast('تم حذف الملف ونشر الحذف سحابياً.');
+  };
+
+  const handleDownloadResource = (id: string) => {
+    appStorage.incrementResourceDownload(id);
+    incrementResourceDownloadInCloud(id);
+  };
+
+  // --- Interactive Lesson Comments Handlers ---
+  const handleAddLessonComment = (comment: Omit<LessonComment, 'id' | 'createdAt'>) => {
+    const newComment: LessonComment = {
+      ...comment,
+      id: `comm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: Date.now(),
+      likes: 0,
+    };
+    appStorage.addLessonComment(newComment);
+    saveLessonCommentToCloud(newComment);
+    showToast(newComment.isStaffReply ? 'تم إرسال رد الإدارة المعتمد وتعميمه سحابياً!' : 'تم نشر استفسارك ومزامنته سحابياً بنجاح.');
+  };
+
+  const handleDeleteLessonComment = (commentId: string) => {
+    appStorage.deleteLessonComment(commentId);
+    deleteLessonCommentFromCloud(commentId);
+    showToast('تم حذف التعليق من السحابة.');
+  };
+
+  const handleLikeLessonComment = (commentId: string) => {
+    appStorage.likeLessonComment(commentId);
+    likeLessonCommentInCloud(commentId);
+  };
+
+  // --- Attendance Roll-Call & Absence Warning Automation Handlers ---
+  const handleAdminSetStudentAttendance = (studentUid: string, lessonId: string, attended: boolean) => {
+    const rec = {
+      attended: attended ? Date.now() : null,
+      opened: Date.now(),
+    };
+
+    appStorage.update((draft) => {
+      if (!draft.attendance[studentUid]) {
+        draft.attendance[studentUid] = {};
+      }
+      const existing = draft.attendance[studentUid][lessonId] || {};
+      draft.attendance[studentUid][lessonId] = {
+        ...existing,
+        attended: rec.attended,
+        opened: existing.opened || rec.opened,
+      };
+    });
+
+    saveAttendanceToCloud(studentUid, lessonId, rec);
+
+    // Automatic check for absence threshold
+    const lesson = store.lessons.find((l) => l.id === lessonId);
+    if (lesson && !attended) {
+      const course = store.courses.find((c) => c.id === lesson.courseId);
+      if (course) {
+        const cLessons = store.lessons.filter((l) => l.courseId === course.id);
+        const stuAttended = cLessons.filter((l) => {
+          if (l.id === lessonId) return false;
+          return !!store.attendance[studentUid]?.[l.id]?.attended;
+        }).length;
+        const stuAbsent = cLessons.length - stuAttended;
+        const stuAbsenceRate = cLessons.length ? Math.round((stuAbsent * 100) / cLessons.length) : 0;
+        const allowedLimit = 100 - (course.minAtt ?? 80);
+
+        if (cLessons.length >= 2 && stuAbsenceRate > allowedLimit) {
+          handleSendAbsenceWarning(studentUid, course.id, stuAbsenceRate, allowedLimit, false);
+        }
+      }
+    }
+
+    const stu = store.students.find((s) => s.id === studentUid);
+    showToast(
+      attended
+        ? `تم تسجيل حضور الطالب (${stu?.name || ''}) ومزامنته سحابياً ✓`
+        : `تم تسجيل غياب الطالب (${stu?.name || ''}) ومزامنته سحابياً`
+    );
+  };
+
+  const handleAdminBatchSetAttendance = (lessonId: string, studentUids: string[], attended: boolean) => {
+    const now = Date.now();
+    appStorage.update((draft) => {
+      studentUids.forEach((uid) => {
+        if (!draft.attendance[uid]) {
+          draft.attendance[uid] = {};
+        }
+        const existing = draft.attendance[uid][lessonId] || {};
+        draft.attendance[uid][lessonId] = {
+          ...existing,
+          attended: attended ? now : null,
+          opened: existing.opened || now,
+        };
+      });
+    });
+
+    studentUids.forEach((uid) => {
+      saveAttendanceToCloud(uid, lessonId, {
+        attended: attended ? now : null,
+        opened: now,
+      });
+    });
+
+    showToast(`تم ${attended ? 'تحضير' : 'إلغاء تحضير'} ${studentUids.length} طالب ومزامنة السجلات سحابياً.`);
+  };
+
+  const handleSendAbsenceWarning = (
+    studentUid: string,
+    courseId: string,
+    absenceRate: number,
+    allowedLimit: number,
+    showUserToast: boolean = true
+  ) => {
+    const stu = store.students.find((s) => s.id === studentUid);
+    const course = store.courses.find((c) => c.id === courseId);
+    const notif: NotificationItem = {
+      id: `notif_abs_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: `⚠️ إنذار أكاديمي: تجاوز نسبة الغياب في مقرر ${course?.title || ''}`,
+      message: `عزيزي الطالب ${stu?.name || ''}، نحيطك علماً بأن نسبة غيابك في مقرر "${course?.title || ''}" بلغت (${absenceRate}%)، وتجاوزت الحد المسموح به نظاماً (${allowedLimit}% - نسبة الحضور الأدنى المطلوبة ${course?.minAtt || 80}%). يرجى الالتزام بحضور المحاضرات القادمة لتفادي الحرمان من دخول الاختبار النهائي والشهادة.`,
+      type: 'admission',
+      targetUid: studentUid,
+      linkTab: 'cal',
+      createdAt: Date.now(),
+      read: false,
+    };
+
+    appStorage.addNotification(notif);
+    saveNotificationToCloud(notif);
+
+    if (showUserToast) {
+      showToast(`تم إرسال إنذار الغياب الأكاديمي للطالب (${stu?.name || ''}) سحابياً.`);
+    }
+  };
+
+  const handleBatchCheckAbsenceWarnings = () => {
+    let sentCount = 0;
+    store.courses.forEach((course) => {
+      const cLessons = store.lessons.filter((l) => l.courseId === course.id);
+      if (cLessons.length < 2) return;
+      const allowedLimit = 100 - (course.minAtt ?? 80);
+
+      store.students.forEach((stu) => {
+        const attendedCount = cLessons.filter((l) => !!store.attendance[stu.id]?.[l.id]?.attended).length;
+        const absentCount = cLessons.length - attendedCount;
+        const absenceRate = Math.round((absentCount * 100) / cLessons.length);
+
+        if (absenceRate > allowedLimit) {
+          // Check if an alert was already sent today
+          const alreadySentToday = store.notifications.some(
+            (n) =>
+              n.targetUid === stu.id &&
+              n.title.includes(course.title) &&
+              Date.now() - n.createdAt < 24 * 3600 * 1000
+          );
+          if (!alreadySentToday) {
+            handleSendAbsenceWarning(stu.id, course.id, absenceRate, allowedLimit, false);
+            sentCount++;
+          }
+        }
+      });
+    });
+
+    if (sentCount > 0) {
+      showToast(`تم فحص الطلاب وإرسال ${sentCount} إنذارات غياب أكاديمية سحابياً.`);
+    } else {
+      showToast('تم فحص جميع الطلاب: لا توجد حالات تجاوز جديدة لنسب الغياب.');
+    }
+  };
+
   const handleResetAllData = () => {
     appStorage.resetToDefault();
     showToast('تمت إعادة تعيين بيانات المنصة إلى الوضع التجريبي الأولي');
@@ -886,6 +1115,7 @@ export default function App() {
               isOwner={isOwner}
               onNavigateTab={(tab) => setCurrentTab(tab)}
               onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onUpdateSite={handleUpdateSite}
             />
           )}
 
@@ -942,7 +1172,17 @@ export default function App() {
               blocks={store.blocks}
               enrolled={studentEnrolled}
               attendance={studentAttendance}
+              allAttendance={store.attendance}
+              students={store.students}
+              users={store.users}
+              lessonComments={store.lessonComments}
+              currentUser={currentUser}
               onSaveAttendance={handleSaveAttendance}
+              onAdminSetStudentAttendance={handleAdminSetStudentAttendance}
+              onAdminBatchSetAttendance={handleAdminBatchSetAttendance}
+              onAddLessonComment={handleAddLessonComment}
+              onDeleteLessonComment={handleDeleteLessonComment}
+              onLikeLessonComment={handleLikeLessonComment}
               onOpenLesson={handleOpenLesson}
               onNavigateTab={(tab) => setCurrentTab(tab)}
               isOwner={isOwner}
@@ -964,6 +1204,31 @@ export default function App() {
               onNavigateTab={(tab) => setCurrentTab(tab)}
               isOwner={isOwner}
               onDeleteCourse={handleDeleteCourse}
+            />
+          )}
+
+          {currentUser && currentTab === 'resources' && (
+            <ResourcesView
+              resources={store.resources}
+              courses={store.courses}
+              currentUser={currentUser}
+              onDownloadResource={(id) => handleDownloadResource(id)}
+              onSaveResource={handleSaveResource}
+              onDeleteResource={handleDeleteResource}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            />
+          )}
+
+          {currentUser && currentTab === 'leaderboard' && (
+            <LeaderboardView
+              students={store.students}
+              users={store.users}
+              lessons={store.lessons}
+              quizzes={store.quizzes}
+              attendance={store.attendance}
+              quizResults={store.quizResults}
+              certificates={store.certificates}
+              currentUser={currentUser}
             />
           )}
 
@@ -1040,6 +1305,7 @@ export default function App() {
               certificates={store.certificates}
               projects={store.projects}
               reviews={store.reviews}
+              resources={store.resources}
               role={store.currentRole}
               currentUserEmail={currentUser?.email}
               onUpdateSite={handleUpdateSite}
@@ -1059,6 +1325,12 @@ export default function App() {
               onSuspendUser={handleSuspendUser}
               onDeleteUser={handleDeleteUser}
               onPromoteUser={handlePromoteUser}
+              onSaveResource={handleSaveResource}
+              onDeleteResource={handleDeleteResource}
+              onAdminSetStudentAttendance={handleAdminSetStudentAttendance}
+              onAdminBatchSetAttendance={handleAdminBatchSetAttendance}
+              onSendAbsenceWarning={handleSendAbsenceWarning}
+              onBatchCheckAbsenceWarnings={handleBatchCheckAbsenceWarnings}
               onResetAllData={handleResetAllData}
               onOpenImportExcel={() => setIsImportExcelOpen(true)}
               onOpenAiAssistant={() => setIsAiAssistantOpen(true)}

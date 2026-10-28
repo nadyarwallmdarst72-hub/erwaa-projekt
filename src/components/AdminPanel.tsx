@@ -63,6 +63,9 @@ import {
   CheckCheck,
   Search,
   Upload,
+  Bell,
+  AlertTriangle,
+  FileText,
 } from 'lucide-react';
 import { StudentAnalyticsDashboard } from './StudentAnalyticsDashboard';
 import { compressImage } from '../utils/imageOptimizer';
@@ -108,6 +111,8 @@ interface AdminPanelProps {
   onDeleteResource: (id: string) => void;
   onAdminSetStudentAttendance?: (studentUid: string, lessonId: string, attended: boolean) => void;
   onAdminBatchSetAttendance?: (lessonId: string, studentUids: string[], attended: boolean) => void;
+  onSendAbsenceWarning?: (studentUid: string, courseId: string, absenceRate: number, allowedLimit: number) => void;
+  onBatchCheckAbsenceWarnings?: () => void;
   onResetAllData: () => void;
   onOpenImportExcel?: () => void;
   onOpenAiAssistant?: () => void;
@@ -187,6 +192,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteResource,
   onAdminSetStudentAttendance,
   onAdminBatchSetAttendance,
+  onSendAbsenceWarning,
+  onBatchCheckAbsenceWarnings,
   onResetAllData,
   onOpenImportExcel,
   onOpenAiAssistant,
@@ -1207,6 +1214,541 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           initialStudentId={selectedStudentAnalyticsId}
           onIssueCertificate={onIssueCertificate}
         />
+      )}
+
+      {/* TAB: ATTENDANCE & ROLL-CALL MANAGER WITH ABSENCE WARNING NOTIFICATIONS */}
+      {activeTab === 'attendance' && (() => {
+        const activeLesson = lessons.find((l) => l.id === attendanceLessonId) || lessons[0];
+        const activeCourse = courses.find((c) => c.id === activeLesson?.courseId);
+        const minAtt = activeCourse?.minAtt ?? 80;
+        const allowedAbsenceLimit = 100 - minAtt; // e.g., 20%
+        const courseLessons = activeLesson ? lessons.filter((l) => l.courseId === activeLesson.courseId) : [];
+
+        const filteredStudents = students.filter((s) => {
+          if (!attendanceSearch.trim()) return true;
+          const q = attendanceSearch.toLowerCase();
+          return (s.name || '').toLowerCase().includes(q) || (s.email || '').toLowerCase().includes(q);
+        });
+
+        const attendedStudentsCount = filteredStudents.filter(
+          (s) => !!attendance[s.id]?.[activeLesson?.id || '']?.attended
+        ).length;
+        const absentStudentsCount = filteredStudents.length - attendedStudentsCount;
+        const currentAttPct = filteredStudents.length
+          ? Math.round((attendedStudentsCount * 100) / filteredStudents.length)
+          : 0;
+
+        return (
+          <div className="grid gap-4 animate-fade-in">
+            {/* Top Config Card: Lesson Selector & Course Warning Rule */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs grid gap-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold font-display text-[var(--fg)] m-0 flex items-center gap-2">
+                    <UserCheck className="w-5 h-5 text-emerald-600" />
+                    <span>كشف التحضير وتسجيل حضور وغياب الطلاب</span>
+                  </h3>
+                  <p className="text-xs text-[var(--muted)] m-0 mt-0.5">
+                    يمكنك هنا تسجيل وتعديل حضور الطلاب يدوياً لكل محاضرة، ومراقبة نسب الغياب، وإرسال إنذارات آلية للمتجاوزين.
+                  </p>
+                </div>
+
+                {onBatchCheckAbsenceWarnings && (
+                  <button
+                    type="button"
+                    onClick={onBatchCheckAbsenceWarnings}
+                    className="px-4 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors flex items-center gap-2 shadow-xs self-start md:self-auto cursor-pointer"
+                  >
+                    <Bell className="w-4 h-4 text-amber-600 animate-bounce" />
+                    <span>فحص وإرسال إنذارات الغياب تلقائياً للطلاب المتجاوزين</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Lesson Dropdown & Course Threshold Banner */}
+              <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t border-[var(--line)]">
+                <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                  اختر المحاضرة لتسجيل الحضور:
+                  <select
+                    value={attendanceLessonId}
+                    onChange={(e) => setAttendanceLessonId(e.target.value)}
+                    className="px-3.5 py-2.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)] font-bold cursor-pointer"
+                  >
+                    {lessons.map((l) => {
+                      const c = courses.find((course) => course.id === l.courseId);
+                      return (
+                        <option key={l.id} value={l.id}>
+                          {l.date} — {l.title} ({c?.title || 'مقرر عام'})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+
+                {activeCourse && (
+                  <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/30 text-xs text-blue-950 dark:text-blue-200 flex items-center gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <div>
+                      <span className="font-bold block">
+                        قاعدة الحضور لمقرر: {activeCourse.title}
+                      </span>
+                      <span className="text-[11px] opacity-90">
+                        الحد الأدنى للحضور المطلوب: <strong>{minAtt}%</strong> | الحد الأقصى للغياب المسموح به:{' '}
+                        <strong className="text-rose-600 dark:text-rose-400">{allowedAbsenceLimit}%</strong> (إجمالي محاضرات المقرر: {courseLessons.length})
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Metric Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                <div className="p-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-center">
+                  <span className="text-[11px] text-[var(--muted)] block">إجمالي الطلاب</span>
+                  <span className="text-lg font-bold font-mono text-[var(--fg)]">
+                    {filteredStudents.length}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 text-center">
+                  <span className="text-[11px] text-emerald-800 dark:text-emerald-300 block">الحاضرون</span>
+                  <span className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    {attendedStudentsCount}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/60 dark:bg-rose-950/20 text-center">
+                  <span className="text-[11px] text-rose-800 dark:text-rose-300 block">الغائبون</span>
+                  <span className="text-lg font-bold font-mono text-rose-600 dark:text-rose-400">
+                    {absentStudentsCount}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-center">
+                  <span className="text-[11px] text-[var(--muted)] block">نسبة الحضور</span>
+                  <span className="text-lg font-bold font-mono" style={{ color: 'var(--accent)' }}>
+                    {currentAttPct}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions & Search */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+                  <input
+                    type="text"
+                    value={attendanceSearch}
+                    onChange={(e) => setAttendanceSearch(e.target.value)}
+                    placeholder="ابحث بالاسم أو البريد..."
+                    className="w-full pr-8 pl-3 py-1.5 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  {onAdminBatchSetAttendance && activeLesson && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onAdminBatchSetAttendance(
+                            activeLesson.id,
+                            filteredStudents.map((s) => s.id),
+                            true
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>تحضير الكل ✓</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onAdminBatchSetAttendance(
+                            activeLesson.id,
+                            filteredStudents.map((s) => s.id),
+                            false
+                          )
+                        }
+                        className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <UserX className="w-3.5 h-3.5 text-rose-600" />
+                        <span>إلغاء تحضير الكل ✗</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Students Attendance Table */}
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead>
+                    <tr className="border-b border-[var(--line)] bg-[var(--accent-soft)]/20 text-[var(--muted)] font-semibold">
+                      <th className="p-3">اسم الطالب</th>
+                      <th className="p-3">حالة الحضور للمحاضرة</th>
+                      <th className="p-3">معدل الغياب الإجمالي في المقرر</th>
+                      <th className="p-3">حالة الإنذار الأكاديمي</th>
+                      <th className="p-3 text-center">الإجراء المباشر</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--line)]">
+                    {filteredStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-[var(--muted)]">
+                          لا توجد نتائج مطابقة لبحثك.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredStudents.map((stu) => {
+                        const isAttended = !!attendance[stu.id]?.[activeLesson?.id || '']?.attended;
+
+                        // Calculate overall absence in this course
+                        const cLessons = activeLesson ? lessons.filter((l) => l.courseId === activeLesson.courseId) : [];
+                        const stuAttendedCount = cLessons.filter(
+                          (l) => !!attendance[stu.id]?.[l.id]?.attended
+                        ).length;
+                        const stuAbsentCount = cLessons.length - stuAttendedCount;
+                        const stuAbsenceRate = cLessons.length
+                          ? Math.round((stuAbsentCount * 100) / cLessons.length)
+                          : 0;
+                        const isOverLimit = cLessons.length >= 1 && stuAbsenceRate > allowedAbsenceLimit;
+
+                        return (
+                          <tr key={stu.id} className="hover:bg-[var(--accent-soft)]/20 transition-colors">
+                            <td className="p-3">
+                              <div className="font-bold text-[var(--fg)] text-xs sm:text-sm">
+                                {stu.name || 'طالب بدون اسم'}
+                              </div>
+                              <span className="text-[11px] text-[var(--muted)] block">{stu.email}</span>
+                            </td>
+
+                            <td className="p-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onAdminSetStudentAttendance && activeLesson) {
+                                    onAdminSetStudentAttendance(stu.id, activeLesson.id, !isAttended);
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-transform hover:scale-105 cursor-pointer shadow-2xs ${
+                                  isAttended
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+                                }`}
+                              >
+                                {isAttended ? (
+                                  <>
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>حاضر ✓ (انقر للتغيير)</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserX className="w-3.5 h-3.5 text-rose-600" />
+                                    <span>غائب ✗ (انقر للتسجيل)</span>
+                                  </>
+                                )}
+                              </button>
+                            </td>
+
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-mono font-bold ${isOverLimit ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--fg)]'}`}>
+                                  غياب {stuAbsenceRate}%
+                                </span>
+                                <span className="text-[11px] text-[var(--muted)]">
+                                  ({stuAbsentCount} من {cLessons.length} دروس)
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="p-3">
+                              {isOverLimit ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 font-bold text-[11px] border border-rose-300 dark:border-rose-800">
+                                  <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                  <span>تجاوز الحد ({allowedAbsenceLimit}%)</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-bold text-[11px]">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>ضمن الحد المسموح</span>
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="p-3 text-center">
+                              {isOverLimit && onSendAbsenceWarning && activeCourse ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onSendAbsenceWarning(
+                                      stu.id,
+                                      activeCourse.id,
+                                      stuAbsenceRate,
+                                      allowedAbsenceLimit
+                                    )
+                                  }
+                                  className="px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 text-xs font-bold hover:bg-amber-100 transition-colors cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                                  title="إرسال إشعار تحذيري للطالب بشأن تجاوز نسبة الغياب"
+                                >
+                                  <Bell className="w-3 h-3 text-amber-600" />
+                                  <span>إرسال إنذار أكاديمي</span>
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-[var(--muted)]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* TAB: RESOURCE CENTER & FILE BANK MANAGEMENT */}
+      {activeTab === 'resources' && (
+        <div className="grid gap-4 animate-fade-in">
+          {/* Add Resource Form */}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!resTitle.trim()) return;
+              setIsResUploading(true);
+              try {
+                let finalUrl = resFileUrl.trim();
+                let finalSize = resFileSize.trim();
+
+                onSaveResource({
+                  title: resTitle.trim(),
+                  description: resDesc.trim(),
+                  category: resCat,
+                  courseId: resCourseId || undefined,
+                  courseTitle: courses.find((c) => c.id === resCourseId)?.title,
+                  fileUrl: finalUrl || 'https://example.com/file',
+                  fileType: resFileType,
+                  fileSize: finalSize || (resFileType === 'link' ? 'رابط خارجي' : '1.5 MB'),
+                  downloadCount: 0,
+                  uploadedBy: isOwner ? 'مالك المنصة' : 'مشرف الأكاديمية',
+                });
+
+                setResTitle('');
+                setResDesc('');
+                setResFileUrl('');
+                setResFileSize('');
+              } finally {
+                setIsResUploading(false);
+              }
+            }}
+            className="p-4 sm:p-5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs grid gap-3"
+          >
+            <div className="flex items-center gap-2">
+              <FolderDown className="w-5 h-5 text-blue-600" />
+              <h3 className="font-bold text-base font-display text-[var(--fg)] m-0">
+                إضافة ملف أو ملزمة إلى بنك الملفات التعليمي
+              </h3>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                عنوان الملف / الملزمة
+                <input
+                  type="text"
+                  value={resTitle}
+                  onChange={(e) => setResTitle(e.target.value)}
+                  placeholder="مثال: ملزمة مراجعة نهائية لمقرر الخوارزميات"
+                  className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                المقرر الدراسي المرتبط
+                <select
+                  value={resCourseId}
+                  onChange={(e) => setResCourseId(e.target.value)}
+                  className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                >
+                  <option value="">عام لجميع المقررات والطلاب</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                التصنيف
+                <select
+                  value={resCat}
+                  onChange={(e) => setResCat(e.target.value)}
+                  className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                >
+                  <option value="كتب وملازم">كتب وملازم</option>
+                  <option value="ملخصات">ملخصات</option>
+                  <option value="أوراق عمل">أوراق عمل</option>
+                  <option value="مشاريع وأكواد">مشاريع وأكواد</option>
+                  <option value="مراجع خارجية">مراجع خارجية</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+                نوع الملف
+                <select
+                  value={resFileType}
+                  onChange={(e) => setResFileType(e.target.value as any)}
+                  className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                >
+                  <option value="pdf">مستند PDF</option>
+                  <option value="doc">مستند Word / نصي</option>
+                  <option value="image">صورة / مخطط</option>
+                  <option value="zip">ملف مضغوط ZIP</option>
+                  <option value="link">رابط موقع / مرجع</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-xs font-semibold text-[var(--muted)] col-span-2 sm:col-span-1">
+                حجم الملف التقديري
+                <input
+                  type="text"
+                  value={resFileSize}
+                  onChange={(e) => setResFileSize(e.target.value)}
+                  placeholder="مثال: 3.2 MB"
+                  className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                />
+              </label>
+            </div>
+
+            <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+              رابط الملف المباشر (أو رفع ملف)
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={resFileUrl}
+                  onChange={(e) => setResFileUrl(e.target.value)}
+                  placeholder="https://example.com/file.pdf"
+                  className="flex-1 px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                />
+                <label className="px-3 py-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs font-bold text-[var(--fg)] hover:bg-[var(--line)]/40 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs">
+                  <Upload className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  <span>رفع صورة / ملف</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setResFileSize(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
+                      if (file.type.startsWith('image/')) {
+                        const compressed = await compressImage(file, 1200, 900, 0.78);
+                        setResFileUrl(compressed);
+                        setResFileType('image');
+                      } else {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                          setResFileUrl(evt.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+            </label>
+
+            <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+              وصف مختصر عن المحتوى
+              <textarea
+                value={resDesc}
+                onChange={(e) => setResDesc(e.target.value)}
+                placeholder="نبذة عن الملف وما يقدمه للطلاب..."
+                rows={2}
+                className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+              />
+            </label>
+
+            <div className="pt-1">
+              <button
+                type="submit"
+                disabled={isResUploading}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-xs transition-opacity hover:opacity-95 flex items-center gap-2 cursor-pointer"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isResUploading ? 'جاري الحفظ...' : 'إضافة الملف إلى المنصة'}</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Resources List in Admin */}
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs divide-y divide-[var(--line)]">
+            <div className="p-3.5 bg-[var(--accent-soft)]/20 font-bold text-xs text-[var(--fg)] flex items-center justify-between">
+              <span>قائمة الملفات والملازم المتاحة ({resources.length})</span>
+            </div>
+            {resources.length === 0 ? (
+              <div className="p-8 text-center text-xs text-[var(--muted)]">
+                لا توجد ملفات مرفوعة حالياً. استخدم النموذج أعلاه لرفع ملفات جديدة.
+              </div>
+            ) : (
+              resources.map((res) => (
+                <div key={res.id} className="p-4 flex items-center justify-between gap-3">
+                  <div className="grid gap-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-[var(--fg)]">{res.title}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300">
+                        {res.category}
+                      </span>
+                      {res.courseTitle && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300">
+                          {res.courseTitle}
+                        </span>
+                      )}
+                    </div>
+                    {res.description && (
+                      <p className="text-xs text-[var(--muted)] m-0">{res.description}</p>
+                    )}
+                    <span className="text-[11px] text-[var(--muted)]">
+                      النوع: {res.fileType.toUpperCase()} · الحجم: {res.fileSize || 'غير محدد'} · التحميلات: {res.downloadCount || 0}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <a
+                      href={res.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl border border-[var(--line)] text-xs text-[var(--fg)] hover:bg-[var(--line)]/40 transition-colors flex items-center gap-1 shadow-2xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">معاينة</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`هل أنت متأكد من حذف الملف "${res.title}"؟`)) {
+                          onDeleteResource(res.id);
+                        }
+                      }}
+                      className="p-2 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors shadow-2xs cursor-pointer"
+                      title="حذف الملف"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       )}
 
       {/* TAB 2: COURSES MANAGEMENT */}

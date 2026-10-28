@@ -965,6 +965,14 @@ class AppStorageManager {
     });
   }
 
+  public syncCloudNotifications(cloudNotifs: NotificationItem[]) {
+    this.update((draft) => {
+      if (cloudNotifs.length > 0) {
+        draft.notifications = cloudNotifs;
+      }
+    });
+  }
+
   public addResourceFile(res: ResourceFile) {
     this.update((draft) => {
       const idx = draft.resources.findIndex((r) => r.id === res.id);

@@ -24,6 +24,7 @@ import {
   Certificate,
   ResourceFile,
   LessonComment,
+  NotificationItem,
 } from '../types';
 import { appStorage } from '../storage';
 import { compressImage } from '../utils/imageOptimizer';
@@ -405,6 +406,26 @@ export async function initCloudSync(
         console.warn('Lesson comments sync error:', error);
       }
     );
+
+    // 12. Synchronize In-App Notifications & Absence Warnings in Real-Time
+    const notifsCol = collection(db, 'notifications');
+    onSnapshot(
+      notifsCol,
+      (snapshot) => {
+        const cloudNotifs: NotificationItem[] = [];
+        snapshot.forEach((docSnap) => {
+          cloudNotifs.push(docSnap.data() as NotificationItem);
+        });
+        if (cloudNotifs.length > 0) {
+          // Sort descending by creation timestamp
+          cloudNotifs.sort((a, b) => b.createdAt - a.createdAt);
+          appStorage.syncCloudNotifications(cloudNotifs);
+        }
+      },
+      (error) => {
+        console.warn('Notifications sync error:', error);
+      }
+    );
   } catch (err) {
     console.error('Failed to initialize cloud sync:', err);
     onStatusChange?.('error');
@@ -687,4 +708,37 @@ export async function likeLessonCommentInCloud(commentId: string): Promise<void>
     console.warn('Failed to update comment likes in cloud:', error);
   }
 }
+
+export async function deleteCertificateFromCloud(certId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'certificates', certId));
+  } catch (error) {
+    console.error('Failed to delete certificate from cloud:', error);
+  }
+}
+
+export async function saveNotificationToCloud(notification: NotificationItem): Promise<void> {
+  try {
+    await setDoc(doc(db, 'notifications', notification.id), notification, { merge: true });
+  } catch (error) {
+    console.error('Failed to save notification to cloud:', error);
+  }
+}
+
+export async function deleteNotificationFromCloud(notificationId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'notifications', notificationId));
+  } catch (error) {
+    console.error('Failed to delete notification from cloud:', error);
+  }
+}
+
+export async function markNotificationReadInCloud(notificationId: string): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'notifications', notificationId), { read: true });
+  } catch (error) {
+    console.warn('Failed to mark notification as read in cloud:', error);
+  }
+}
+
 

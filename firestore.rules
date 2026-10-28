@@ -80,6 +80,18 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    // In-app Notifications & Absence Warnings
+    match /notifications/{notifId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Student projects
+    match /projects/{projectId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Global default deny
     match /{document=**} {
       allow read, write: if false;

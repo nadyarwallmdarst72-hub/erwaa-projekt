@@ -9,12 +9,16 @@ import {
   FolderKanban,
   Settings,
   MessageSquareQuote,
+  FolderDown,
+  Trophy,
 } from 'lucide-react';
 
 export type MainTabKey =
   | 'home'
   | 'cal'
   | 'courses'
+  | 'resources'
+  | 'leaderboard'
   | 'questions'
   | 'quiz'
   | 'certs'
@@ -53,6 +57,18 @@ export const TabsNav: React.FC<TabsNavProps> = ({
     { key: 'home', label: 'الرئيسية', shortLabel: 'الرئيسية', icon: <Home className="w-4 h-4 sm:w-5 sm:h-5" /> },
     { key: 'cal', label: labels.cal || 'لوحتي', shortLabel: 'التقويم', icon: <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5" /> },
     { key: 'courses', label: labels.courses || 'المقررات', shortLabel: 'المقررات', icon: <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" /> },
+    {
+      key: 'resources',
+      label: 'بنك الملفات',
+      shortLabel: 'الملفات',
+      icon: <FolderDown className="w-4 h-4 sm:w-5 sm:h-5" />,
+    },
+    {
+      key: 'leaderboard',
+      label: 'لوحة الشرف',
+      shortLabel: 'المتصدرين',
+      icon: <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />,
+    },
     {
       key: 'questions',
       label: labels.questions || 'الأسئلة العلمية',
