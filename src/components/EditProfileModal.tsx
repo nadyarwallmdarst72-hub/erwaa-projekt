@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { UserAccount, OWNER_EMAIL } from '../types';
-import { User, Phone, FileText, CheckCircle2, X, ShieldCheck, UserCheck, GraduationCap } from 'lucide-react';
+import { User, Phone, FileText, CheckCircle2, X, ShieldCheck, UserCheck, GraduationCap, KeyRound, Send, Eye, EyeOff } from 'lucide-react';
 
 interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserAccount;
   onUpdateProfile: (updates: Partial<UserAccount>) => void;
+  onRequestChangeCode?: (requestedCode: string, note?: string) => void;
 }
 
 const AVATAR_OPTIONS = [
@@ -23,12 +24,20 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   onClose,
   currentUser,
   onUpdateProfile,
+  onRequestChangeCode,
 }) => {
   const [name, setName] = useState(currentUser.name || '');
   const [bio, setBio] = useState(currentUser.bio || '');
   const [phone, setPhone] = useState(currentUser.phone || '');
   const [accountCode, setAccountCode] = useState(currentUser.accountCode || '');
+  const [showCode, setShowCode] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(currentUser.avatar || AVATAR_OPTIONS[0]);
+
+  // Request code change state
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [requestedNewCode, setRequestedNewCode] = useState('');
+  const [requestNote, setRequestNote] = useState('');
+  const [requestSentSuccess, setRequestSentSuccess] = useState(false);
 
   useEffect(() => {
     setName(currentUser.name || '');
@@ -36,7 +45,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     setPhone(currentUser.phone || '');
     setAccountCode(currentUser.accountCode || '');
     setSelectedAvatar(currentUser.avatar || AVATAR_OPTIONS[0]);
-  }, [currentUser]);
+    setIsRequestingCode(false);
+    setRequestedNewCode('');
+    setRequestNote('');
+    setRequestSentSuccess(false);
+  }, [currentUser, isOpen]);
 
   if (!isOpen) return null;
 
@@ -50,6 +63,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       ...(accountCode.trim().length >= 4 ? { accountCode: accountCode.trim() } : {}),
     });
     onClose();
+  };
+
+  const handleSendCodeRequest = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!requestedNewCode.trim() || requestedNewCode.trim().length < 4) {
+      alert('يجب أن يتكون الرمز الجديد المطلوب من 4 خانات على الأقل.');
+      return;
+    }
+    if (onRequestChangeCode) {
+      onRequestChangeCode(requestedNewCode.trim(), requestNote.trim());
+      setRequestSentSuccess(true);
+      setTimeout(() => {
+        setIsRequestingCode(false);
+        setRequestSentSuccess(false);
+      }, 2500);
+    }
   };
 
   const isOwner = currentUser.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
@@ -188,21 +217,111 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           />
         </label>
 
-        {/* Account Code input */}
-        <label className="grid gap-1 text-xs font-semibold text-[var(--muted)]">
+        {/* Account Code Section with Toggle & Request to Manager */}
+        <div className="p-3.5 rounded-2xl border border-[var(--line)] bg-[var(--bg)]/50 grid gap-2.5">
           <div className="flex items-center justify-between">
-            <span>رمز الحساب السري (لتسجيل الدخول)</span>
-            <span className="text-[10px] text-[var(--muted)] font-normal">4 خانات على الأقل</span>
+            <span className="text-xs font-semibold text-[var(--fg)] flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-[var(--accent)]" />
+              <span>الرمز الخاص بالحساب (لتسجيل الدخول)</span>
+            </span>
+            <span className="text-[10px] text-[var(--muted)] font-normal">
+              4 خانات على الأقل
+            </span>
           </div>
-          <input
-            type="text"
-            dir="ltr"
-            value={accountCode}
-            onChange={(e) => setAccountCode(e.target.value)}
-            placeholder="أدخل رمز حساب سري جديد"
-            className="px-3.5 py-2 rounded-xl border border-[var(--line)] bg-[var(--bg)] text-xs sm:text-sm text-[var(--fg)] font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-          />
-        </label>
+
+          <div className="relative flex items-center">
+            <input
+              type={showCode ? 'text' : 'password'}
+              dir="ltr"
+              value={accountCode}
+              onChange={(e) => setAccountCode(e.target.value)}
+              placeholder="الرمز الخاص بك"
+              className="w-full pr-3.5 pl-10 py-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] text-xs sm:text-sm text-[var(--fg)] font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCode(!showCode)}
+              className="absolute left-2.5 text-[var(--muted)] hover:text-[var(--fg)] p-1 rounded-md transition-colors"
+              title={showCode ? 'إخفاء الرمز' : 'إظهار الرمز'}
+            >
+              {showCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* Student Request to Manager Option */}
+          {!isOwner && (
+            <div className="pt-1 border-t border-[var(--line)]/60">
+              {!isRequestingCode ? (
+                <button
+                  type="button"
+                  onClick={() => setIsRequestingCode(true)}
+                  className="text-[11px] font-bold text-[var(--accent)] hover:underline flex items-center gap-1.5 cursor-pointer py-1"
+                >
+                  <Send className="w-3 h-3" />
+                  <span>طلب تعديل / تغيير الرمز من قِبل إدارة المنصة</span>
+                </button>
+              ) : (
+                <div className="p-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] grid gap-2 animate-slide-up">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[var(--fg)] flex items-center gap-1">
+                      <Send className="w-3.5 h-3.5 text-[var(--accent)]" />
+                      طلب تغيير الرمز الخاص من المدير
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsRequestingCode(false)}
+                      className="text-[11px] text-[var(--muted)] hover:text-[var(--fg)]"
+                    >
+                      إلغاء الطلب
+                    </button>
+                  </div>
+
+                  {requestSentSuccess ? (
+                    <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>تم إرسال طلبك إلى مالك المنصة بنجاح! سيتم اعتماده وتحديث رمزك.</span>
+                    </div>
+                  ) : (
+                    <>
+                      <label className="grid gap-1 text-[11px] text-[var(--muted)] font-semibold">
+                        الرمز الجديد المقترح:
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={requestedNewCode}
+                          onChange={(e) => setRequestedNewCode(e.target.value)}
+                          placeholder="مثال: 9876 أو mySecretCode"
+                          className="px-3 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)] font-mono"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-[11px] text-[var(--muted)] font-semibold">
+                        سبب أو ملاحظة الطلب (اختياري):
+                        <input
+                          type="text"
+                          value={requestNote}
+                          onChange={(e) => setRequestNote(e.target.value)}
+                          placeholder="مثال: نسيت رمزي السابق أو أريد رمزاً أسهل للحفظ"
+                          className="px-3 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--fg)]"
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={handleSendCodeRequest}
+                        className="mt-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        style={{ backgroundColor: 'var(--accent)' }}
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>إرسال الطلب للمدير</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 pt-2">

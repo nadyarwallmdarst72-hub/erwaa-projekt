@@ -1033,6 +1033,58 @@ export default function App() {
     }
   };
 
+  // --- Student Account Code Handlers (Admin Edit & Student Request) ---
+  const handleUpdateStudentAccountCode = (studentUid: string, newCode: string) => {
+    appStorage.updateUserAccountCode(studentUid, newCode);
+    updateUserProfileInCloud(studentUid, { accountCode: newCode });
+
+    // Mark any pending code_request notifications for this student as read
+    store.notifications
+      .filter((n) => n.type === 'code_request' && n.studentUid === studentUid && !n.read)
+      .forEach((n) => {
+        appStorage.markNotificationAsRead(n.id);
+        markNotificationReadInCloud(n.id);
+      });
+
+    // Notify the student that their code has been updated by administration
+    const studentUser = store.users.find((u) => u.id === studentUid);
+    const notifyStudent: NotificationItem = {
+      id: `notif_code_updated_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: '🔑 تم تحديث الرمز الخاص بحسابك',
+      message: `مرحباً ${studentUser?.name || ''}، تم تحديث رمز حسابك الخاص بنجاح إلى: (${newCode}). يمكنك استخدامه لتسجيل الدخول في المرات القادمة.`,
+      type: 'admission',
+      targetUid: studentUid,
+      createdAt: Date.now(),
+      read: false,
+    };
+    appStorage.addNotification(notifyStudent);
+    saveNotificationToCloud(notifyStudent);
+
+    showToast(`تم تحديث الرمز الخاص للطالب (${studentUser?.name || ''}) ومزامنته سحابياً بنجاح!`);
+  };
+
+  const handleRequestChangeCode = (requestedCode: string, note?: string) => {
+    if (!currentUser) return;
+    const ownerAccount = store.users.find((u) => u.email.toLowerCase() === OWNER_EMAIL.toLowerCase());
+
+    const notif: NotificationItem = {
+      id: `notif_code_req_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      title: `🔑 طلب تعديل الرمز الخاص من الطالب: ${currentUser.name}`,
+      message: note ? `الرمز المقترح: (${requestedCode}) — ملاحظة: ${note}` : `الرمز المقترح: (${requestedCode})`,
+      type: 'code_request',
+      studentUid: currentUser.id,
+      requestedCode,
+      targetUid: ownerAccount?.id, // Send to owner
+      linkTab: 'admin',
+      createdAt: Date.now(),
+      read: false,
+    };
+
+    appStorage.addNotification(notif);
+    saveNotificationToCloud(notif);
+    showToast('تم إرسال طلب تعديل الرمز إلى مدير المنصة بنجاح!');
+  };
+
   const handleResetAllData = () => {
     appStorage.resetToDefault();
     showToast('تمت إعادة تعيين بيانات المنصة إلى الوضع التجريبي الأولي');
@@ -1331,6 +1383,8 @@ export default function App() {
               onAdminBatchSetAttendance={handleAdminBatchSetAttendance}
               onSendAbsenceWarning={handleSendAbsenceWarning}
               onBatchCheckAbsenceWarnings={handleBatchCheckAbsenceWarnings}
+              onUpdateStudentAccountCode={handleUpdateStudentAccountCode}
+              notifications={store.notifications}
               onResetAllData={handleResetAllData}
               onOpenImportExcel={() => setIsImportExcelOpen(true)}
               onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
@@ -1396,6 +1450,7 @@ export default function App() {
           onClose={() => setIsEditProfileOpen(false)}
           currentUser={currentUser}
           onUpdateProfile={handleUpdateProfile}
+          onRequestChangeCode={handleRequestChangeCode}
         />
       )}
 

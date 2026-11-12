@@ -1,7 +1,7 @@
 import React from 'react';
 import { NotificationItem } from '../types';
 import { formatDateTime } from '../storage';
-import { Bell, Check, Trash2, X, ExternalLink, Megaphone, HelpCircle, Award, BookOpen } from 'lucide-react';
+import { Bell, Check, Trash2, X, ExternalLink, Megaphone, HelpCircle, Award, BookOpen, KeyRound } from 'lucide-react';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -43,6 +43,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         return <Award className="w-4 h-4 text-emerald-500" />;
       case 'lesson':
         return <BookOpen className="w-4 h-4 text-teal-500" />;
+      case 'code_request':
+        return <KeyRound className="w-4 h-4 text-purple-600" />;
       default:
         return <Bell className="w-4 h-4 text-[var(--accent)]" />;
     }

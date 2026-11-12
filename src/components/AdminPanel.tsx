@@ -17,6 +17,7 @@ import {
   UserAccount,
   OWNER_EMAIL,
   LessonExercise,
+  NotificationItem,
 } from '../types';
 import {
   formatDateKey,
@@ -66,6 +67,11 @@ import {
   Bell,
   AlertTriangle,
   FileText,
+  KeyRound,
+  Check,
+  Eye,
+  EyeOff,
+  X,
 } from 'lucide-react';
 import { StudentAnalyticsDashboard } from './StudentAnalyticsDashboard';
 import { compressImage } from '../utils/imageOptimizer';
@@ -88,6 +94,7 @@ interface AdminPanelProps {
   projects: Record<string, Project>;
   reviews: Record<string, ProjectReview>;
   resources: ResourceFile[];
+  notifications?: NotificationItem[];
   role: Role;
   currentUserEmail?: string;
   onUpdateSite: (newSite: SiteSettings) => void;
@@ -113,6 +120,7 @@ interface AdminPanelProps {
   onAdminBatchSetAttendance?: (lessonId: string, studentUids: string[], attended: boolean) => void;
   onSendAbsenceWarning?: (studentUid: string, courseId: string, absenceRate: number, allowedLimit: number) => void;
   onBatchCheckAbsenceWarnings?: () => void;
+  onUpdateStudentAccountCode?: (studentUid: string, newCode: string) => void;
   onResetAllData: () => void;
   onOpenImportExcel?: () => void;
   onOpenAiAssistant?: () => void;
@@ -169,6 +177,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   projects,
   reviews,
   resources = [],
+  notifications = [],
   role,
   currentUserEmail,
   onUpdateSite,
@@ -194,12 +203,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAdminBatchSetAttendance,
   onSendAbsenceWarning,
   onBatchCheckAbsenceWarnings,
+  onUpdateStudentAccountCode,
   onResetAllData,
   onOpenImportExcel,
   onOpenAiAssistant,
 }) => {
   const isOwner = role === 'owner' || currentUserEmail?.toLowerCase() === OWNER_EMAIL.toLowerCase();
   const [activeTab, setActiveTab] = useState<AdminTab>(isOwner ? 'users' : 'students');
+
+  // Student Account Code Editing State
+  const [editingCodeUid, setEditingCodeUid] = useState<string | null>(null);
+  const [newCodeInput, setNewCodeInput] = useState<string>('');
+  const [showCodeMap, setShowCodeMap] = useState<Record<string, boolean>>({});
 
   // Attendance Roll-Call Manager State
   const [attendanceLessonId, setAttendanceLessonId] = useState<string>(() => lessons[0]?.id || '');
@@ -739,6 +754,81 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
+          {/* Pending Student Code Change Requests */}
+          {(() => {
+            const codeRequests = notifications.filter((n) => n.type === 'code_request' && !n.read);
+            if (codeRequests.length === 0) return null;
+
+            return (
+              <div className="p-4 rounded-2xl border-2 border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 shadow-sm grid gap-3 animate-slide-up">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-sm font-display m-0 flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                    <KeyRound className="w-4 h-4 text-blue-600" />
+                    طلبات تعديل الرمز الخاص الواردة من الطلاب ({codeRequests.length})
+                  </h3>
+                  <span className="text-xs text-[var(--muted)]">تحتاج موافقة المالك</span>
+                </div>
+                <p className="text-xs text-[var(--muted)] m-0">
+                  يمكنك مراجعة الرمز المطلوب واعتماده مباشرة ليتم تحديث رمز الطالب وحفظه سحابياً فوراً.
+                </p>
+
+                <div className="divide-y divide-blue-200 dark:divide-blue-800/50 bg-white dark:bg-black/30 rounded-xl border border-blue-200 dark:border-blue-900">
+                  {codeRequests.map((req) => {
+                    const studentUser = users.find((u) => u.id === req.studentUid);
+
+                    return (
+                      <div
+                        key={req.id}
+                        className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="grid gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-[var(--fg)]">
+                              {studentUser?.name || 'طالب بالمنصة'}
+                            </span>
+                            <span className="text-[11px] text-[var(--muted)] font-mono" dir="ltr">
+                              ({studentUser?.email})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <span className="text-[var(--muted)]">الرمز الحالي:</span>
+                            <span className="font-mono bg-[var(--line)]/50 px-2 py-0.5 rounded text-[var(--fg)]">
+                              {studentUser?.accountCode || 'لا يوجد'}
+                            </span>
+                            <span className="text-[var(--muted)]">← الرمز الجديد المطلوب:</span>
+                            <span className="font-mono font-bold bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded border border-blue-300 dark:border-blue-700">
+                              {req.requestedCode}
+                            </span>
+                          </div>
+                          {req.message && (
+                            <p className="text-[11px] text-[var(--muted)] m-0">
+                              ملاحظة الطالب: {req.message}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {req.requestedCode && req.studentUid && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onUpdateStudentAccountCode?.(req.studentUid!, req.requestedCode!);
+                              }}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-xs flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>اعتماد وتطبيق الرمز فوراً</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* All Users Directory */}
           <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] shadow-xs overflow-hidden">
             <div className="flex items-center justify-between p-3.5 border-b border-[var(--line)]">
@@ -761,6 +851,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <tr className="border-b border-[var(--line)] bg-[var(--accent-soft)]/20 text-[var(--muted)] font-semibold">
                     <th className="p-3">المستخدم</th>
                     <th className="p-3">الرتبة والدور</th>
+                    <th className="p-3">الرمز الخاص بالحساب</th>
                     <th className="p-3">حالة الحساب</th>
                     <th className="p-3">ترقية الرتبة</th>
                     <th className="p-3">إجراءات المالك</th>
@@ -769,6 +860,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <tbody className="divide-y divide-[var(--line)]">
                   {users.map((u) => {
                     const isSiteOwnerAccount = u.email.toLowerCase() === OWNER_EMAIL.toLowerCase();
+                    const isEditingThisCode = editingCodeUid === u.id;
+                    const isCodeVisible = showCodeMap[u.id] || false;
 
                     return (
                       <tr key={u.id} className="hover:bg-[var(--accent-soft)]/20 transition-colors">
@@ -805,6 +898,77 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <span className="inline-flex items-center gap-1 text-[var(--muted)] px-2 py-0.5 rounded-full bg-[var(--line)]/50">
                               طالب
                             </span>
+                          )}
+                        </td>
+
+                        {/* Account Code (الرمز الخاص) Column & Edit */}
+                        <td className="p-3">
+                          {isEditingThisCode ? (
+                            <div className="flex items-center gap-1.5 min-w-[140px]">
+                              <input
+                                type="text"
+                                dir="ltr"
+                                value={newCodeInput}
+                                onChange={(e) => setNewCodeInput(e.target.value)}
+                                placeholder="الرمز الجديد"
+                                className="w-24 px-2 py-1 text-xs font-mono rounded-lg border border-[var(--accent)] bg-[var(--bg)] text-[var(--fg)] focus:outline-none"
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (newCodeInput.trim().length >= 4) {
+                                    onUpdateStudentAccountCode?.(u.id, newCodeInput.trim());
+                                    setEditingCodeUid(null);
+                                    setNewCodeInput('');
+                                  } else {
+                                    alert('يجب أن يتكون الرمز من 4 خانات على الأقل.');
+                                  }
+                                }}
+                                className="p-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
+                                title="حفظ الرمز"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCodeUid(null)}
+                                className="p-1 rounded border border-[var(--line)] text-[var(--muted)] hover:text-[var(--fg)] cursor-pointer"
+                                title="إلغاء"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-mono font-bold text-xs bg-[var(--line)]/50 px-2 py-0.5 rounded-md text-[var(--fg)] tracking-wider">
+                                {isCodeVisible ? (u.accountCode || 'لا يوجد') : '••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowCodeMap((prev) => ({
+                                    ...prev,
+                                    [u.id]: !prev[u.id],
+                                  }))
+                                }
+                                className="p-1 text-[var(--muted)] hover:text-[var(--fg)] rounded"
+                                title={isCodeVisible ? 'إخفاء الرمز' : 'إظهار الرمز'}
+                              >
+                                {isCodeVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCodeUid(u.id);
+                                  setNewCodeInput(u.accountCode || '');
+                                }}
+                                className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-colors"
+                                title="تعديل الرمز الخاص للطالب"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </td>
 
@@ -1011,6 +1175,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <thead>
                   <tr className="border-b border-[var(--line)] bg-[var(--accent-soft)]/20 text-[var(--muted)] font-semibold">
                     <th className="p-3">اسم الطالب</th>
+                    <th className="p-3">الرمز الخاص</th>
                     <th className="p-3">الدورات المسجل بها</th>
                     <th className="p-3">نسبة الحضور</th>
                     <th className="p-3">الشهادات الصادرة</th>
@@ -1019,6 +1184,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </thead>
                 <tbody className="divide-y divide-[var(--line)]">
                   {students.map((stu) => {
+                    const userAccount = users.find((u) => u.id === stu.id);
+                    const stuAccountCode = userAccount?.accountCode || (stu as any).accountCode || '';
+                    const isEditingThisCode = editingCodeUid === stu.id;
+                    const isCodeVisible = showCodeMap[stu.id] || false;
+
                     const userAtt = attendance[stu.id] || {};
                     const relevantLessons = lessons.filter(
                       (l) => selectedCourseFilter === 'all' || l.courseId === selectedCourseFilter
@@ -1038,9 +1208,78 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <tr key={stu.id} className="hover:bg-[var(--accent-soft)]/20 transition-colors">
                         <td className="p-3 font-bold text-[var(--fg)]">
                           {stu.name || 'طالب بدون اسم'}
-                          <span className="block text-[11px] text-[var(--muted)] font-normal">
+                          <span className="block text-[11px] text-[var(--muted)] font-normal font-mono" dir="ltr">
                             {stu.email}
                           </span>
+                        </td>
+                        <td className="p-3">
+                          {isEditingThisCode ? (
+                            <div className="flex items-center gap-1.5 min-w-[130px]">
+                              <input
+                                type="text"
+                                dir="ltr"
+                                value={newCodeInput}
+                                onChange={(e) => setNewCodeInput(e.target.value)}
+                                placeholder="رمز جديد"
+                                className="w-20 px-2 py-1 text-xs font-mono rounded-lg border border-[var(--accent)] bg-[var(--bg)] text-[var(--fg)] focus:outline-none"
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (newCodeInput.trim().length >= 4) {
+                                    onUpdateStudentAccountCode?.(stu.id, newCodeInput.trim());
+                                    setEditingCodeUid(null);
+                                    setNewCodeInput('');
+                                  } else {
+                                    alert('يجب أن يتكون الرمز من 4 خانات على الأقل.');
+                                  }
+                                }}
+                                className="p-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
+                                title="حفظ الرمز"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCodeUid(null)}
+                                className="p-1 rounded border border-[var(--line)] text-[var(--muted)] hover:text-[var(--fg)] cursor-pointer"
+                                title="إلغاء"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="font-mono font-bold text-xs bg-[var(--line)]/50 px-2 py-0.5 rounded-md text-[var(--fg)] tracking-wider">
+                                {isCodeVisible ? (stuAccountCode || 'لا يوجد') : '••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowCodeMap((prev) => ({
+                                    ...prev,
+                                    [stu.id]: !prev[stu.id],
+                                  }))
+                                }
+                                className="p-1 text-[var(--muted)] hover:text-[var(--fg)] rounded"
+                                title={isCodeVisible ? 'إخفاء الرمز' : 'إظهار الرمز'}
+                              >
+                                {isCodeVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCodeUid(stu.id);
+                                  setNewCodeInput(stuAccountCode);
+                                }}
+                                className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-colors"
+                                title="تعديل رمز الطالب"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td className="p-3 text-[var(--muted)]">
                           {Object.keys(stuEnrolled).length} دورات
@@ -1113,22 +1352,104 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             return (
               <div className="p-5 rounded-2xl border border-[var(--accent)] bg-[var(--surface)] shadow-md grid gap-4 animate-slide-up">
-                <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--line)] pb-3 gap-3">
                   <div>
                     <h3 className="font-bold text-base font-display text-[var(--fg)] m-0">
                       السجل الأكاديمي للطالب: {stu.name || 'بدون اسم'}
                     </h3>
-                    <p className="text-xs text-[var(--muted)] m-0 mt-0.5">
-                      تاريخ الانضمام: {stu.joinedAt ? formatLongDate(formatDateKey(new Date(stu.joinedAt))) : '—'}
+                    <p className="text-xs text-[var(--muted)] m-0 mt-0.5 font-mono" dir="ltr">
+                      {stu.email} {stu.joinedAt ? `· انضم: ${formatLongDate(formatDateKey(new Date(stu.joinedAt)))}` : ''}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedStudentDrilldownId(null)}
-                    className="text-xs text-[var(--muted)] hover:text-[var(--fg)]"
-                  >
-                    إغلاق التفاصيل
-                  </button>
+
+                  {/* Student Account Code Card & Quick Editor */}
+                  {(() => {
+                    const uAcc = users.find((u) => u.id === stu.id);
+                    const stuCode = uAcc?.accountCode || (stu as any).accountCode || '';
+                    const isEditing = editingCodeUid === `drill_${stu.id}`;
+                    const isVisible = showCodeMap[`drill_${stu.id}`] || false;
+
+                    return (
+                      <div className="flex items-center gap-2 p-2 rounded-xl bg-[var(--accent-soft)]/40 border border-[var(--line)] self-start sm:self-auto">
+                        <KeyRound className="w-4 h-4 text-[var(--accent)] flex-shrink-0" />
+                        <span className="text-xs font-bold text-[var(--muted)]">الرمز الخاص:</span>
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              dir="ltr"
+                              value={newCodeInput}
+                              onChange={(e) => setNewCodeInput(e.target.value)}
+                              placeholder="رمز جديد"
+                              className="w-24 px-2 py-1 text-xs font-mono rounded-lg border border-[var(--accent)] bg-[var(--bg)] text-[var(--fg)]"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (newCodeInput.trim().length >= 4) {
+                                  onUpdateStudentAccountCode?.(stu.id, newCodeInput.trim());
+                                  setEditingCodeUid(null);
+                                  setNewCodeInput('');
+                                } else {
+                                  alert('يجب أن يتكون الرمز من 4 خانات على الأقل.');
+                                }
+                              }}
+                              className="p-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+                              title="حفظ"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCodeUid(null)}
+                              className="p-1 rounded border border-[var(--line)] text-[var(--muted)] hover:text-[var(--fg)]"
+                              title="إلغاء"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-xs bg-[var(--surface)] px-2 py-0.5 rounded border border-[var(--line)] text-[var(--fg)] tracking-wider">
+                              {isVisible ? (stuCode || 'لا يوجد') : '••••••'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowCodeMap((prev) => ({
+                                  ...prev,
+                                  [`drill_${stu.id}`]: !prev[`drill_${stu.id}`],
+                                }))
+                              }
+                              className="p-1 text-[var(--muted)] hover:text-[var(--fg)]"
+                              title={isVisible ? 'إخفاء الرمز' : 'إظهار الرمز'}
+                            >
+                              {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCodeUid(`drill_${stu.id}`);
+                                setNewCodeInput(stuCode);
+                              }}
+                              className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded transition-colors"
+                              title="تعديل الرمز الخاص للطالب"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStudentDrilldownId(null)}
+                          className="mr-2 text-xs text-[var(--muted)] hover:text-[var(--fg)]"
+                        >
+                          إغلاق
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="grid gap-3">

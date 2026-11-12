@@ -1046,6 +1046,15 @@ class AppStorageManager {
     });
   }
 
+  public updateUserAccountCode(uid: string, newCode: string) {
+    this.update((draft) => {
+      const user = draft.users.find((u) => u.id === uid);
+      if (user) {
+        user.accountCode = newCode.trim();
+      }
+    });
+  }
+
   // --- Notifications System ---
   public addNotification(notif: Omit<NotificationItem, 'id' | 'createdAt' | 'read'>) {
     this.update((draft) => {

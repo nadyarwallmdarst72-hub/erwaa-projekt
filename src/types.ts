@@ -29,11 +29,13 @@ export interface NotificationItem {
   id: string;
   title: string;
   message: string;
-  type: 'announcement' | 'review' | 'cert' | 'admission' | 'lesson' | 'question';
+  type: 'announcement' | 'review' | 'cert' | 'admission' | 'lesson' | 'question' | 'code_request';
   createdAt: number;
   read: boolean;
   targetUid?: string; // empty means all users
   linkTab?: string;
+  requestedCode?: string;
+  studentUid?: string;
 }
 
 export interface CourseMaterial {
